@@ -40,6 +40,8 @@ components:
           minimum: 1
         simple:
           type: string
+          default: SIMPLEVALUE
+          maxLength: 10
         list:
           type: array
           items:

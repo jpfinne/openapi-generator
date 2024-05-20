@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.samskivert.mustache.Mustache;
+import com.samskivert.mustache.Template;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -50,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Writer;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -176,6 +178,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
 
         supportsInheritance = true;
         modelTemplateFiles.put("model.mustache", ".java");
+        modelTemplateFiles.put("model75.mustache", ".java75");
         apiTemplateFiles.put("api.mustache", ".java");
         apiTestTemplateFiles.put("api_test.mustache", ".java");
         modelDocTemplateFiles.put("model_doc.mustache", ".md");
@@ -690,6 +693,14 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             }
             writer.write(content);
         });
+
+
+    }
+
+
+    protected JavaCodegenPropertyConfig getJavaCodeCodegenPropertyConfig() {
+        JavaCodegenPropertyConfig javaCodegenPropertyConfig = new JavaCodegenPropertyConfig();
+        return javaCodegenPropertyConfig;
     }
 
     public void setGenerateConstructorWithAllArgs(boolean aValue) {

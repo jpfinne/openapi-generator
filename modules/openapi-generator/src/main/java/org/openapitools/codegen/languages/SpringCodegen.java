@@ -28,7 +28,6 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
-import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.tags.Tag;
 import java.io.File;
@@ -42,6 +41,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.openapitools.codegen.CliOption;
 import org.openapitools.codegen.CodegenConstants;
 import org.openapitools.codegen.CodegenModel;
+import org.openapitools.codegen.CodegenModelType;
 import org.openapitools.codegen.CodegenOperation;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
@@ -91,7 +91,9 @@ public class SpringCodegen extends AbstractJavaCodegen
 
     public static final String RESOURCE_FOLDER = "resourceFolder";
     public static final String RESOURCE_FOLDER_DESC = "resource folder for generated resources";
+    public static final String USE_OPTIONAL_FOR_FIELD = "useOptionalForField";
 
+    public static final String USE_OPTIONAL_FOR_GETTER = "useOptionalForGetter";
     public static final String ASYNC = "async";
     public static final String REACTIVE = "reactive";
     public static final String SSE = "serverSentEvents";
@@ -151,6 +153,8 @@ public class SpringCodegen extends AbstractJavaCodegen
     protected boolean performBeanValidation = false;
     protected boolean apiFirst = false;
     protected boolean useOptional = false;
+    protected Boolean useOptionalForField;
+    protected Boolean useOptionalForGetter;
     protected boolean virtualService = false;
     protected boolean hateoas = false;
     protected boolean returnSuccessCode = false;
@@ -229,6 +233,10 @@ public class SpringCodegen extends AbstractJavaCodegen
                 "Generate the API from the OAI spec at server compile time (API first approach)", apiFirst));
         cliOptions
                 .add(CliOption.newBoolean(USE_OPTIONAL, "Use Optional container for optional parameters", useOptional));
+        cliOptions
+                .add(CliOption.newBoolean(USE_OPTIONAL_FOR_FIELD, "Use Optional container for optional fields", false));
+        cliOptions
+                .add(CliOption.newBoolean(USE_OPTIONAL_FOR_GETTER, "Use Optional container for getters of optional field", false));
         cliOptions.add(
                 CliOption.newBoolean(HATEOAS, "Use Spring HATEOAS library to allow adding HATEOAS links", hateoas));
         cliOptions
@@ -473,6 +481,13 @@ public class SpringCodegen extends AbstractJavaCodegen
 
         if (additionalProperties.containsKey(USE_OPTIONAL)) {
             this.setUseOptional(convertPropertyToBoolean(USE_OPTIONAL));
+        }
+
+        if (additionalProperties.containsKey(USE_OPTIONAL_FOR_FIELD)) {
+            this.setUseOptionalForField(convertPropertyToBoolean(USE_OPTIONAL_FOR_FIELD));
+        }
+        if (additionalProperties.containsKey(USE_OPTIONAL_FOR_GETTER)) {
+            this.setUseOptionalForGetter(convertPropertyToBoolean(USE_OPTIONAL_FOR_GETTER));
         }
 
         if (additionalProperties.containsKey(API_FIRST)) {
@@ -733,6 +748,10 @@ public class SpringCodegen extends AbstractJavaCodegen
             modelTemplateFiles.clear();
         }
         supportsAdditionalPropertiesWithComposedSchema = true;
+
+        final JavaCodegenPropertyConfig javaCodeGenPropertyConfig = getJavaCodeCodegenPropertyConfig();
+        CodegenModelType.PROPERTY.setSupplier(() -> new JavaCodegenProperty(javaCodeGenPropertyConfig));
+
     }
 
     private boolean containsEnums() {
@@ -1365,6 +1384,45 @@ public class SpringCodegen extends AbstractJavaCodegen
         this.useOptional = useOptional;
     }
 
+    public void setUseOptionalForField(boolean useOptionalForField) {
+        this.useOptionalForField = useOptionalForField;
+    }
+
+    public void setUseOptionalForGetter(boolean useOptionalForGetter) {
+        this.useOptionalForGetter = useOptionalForGetter;
+    }
+
+    @Override
+    protected JavaCodegenPropertyConfig getJavaCodeCodegenPropertyConfig() {
+        JavaCodegenPropertyConfig javaCodegenPropertyConfig = super.getJavaCodeCodegenPropertyConfig();
+
+        // backward compatibility
+        if (useOptional && openApiNullable && useOptionalForGetter == null && useOptionalForField == null) {
+            javaCodegenPropertyConfig.useOptionalForField = true;
+            javaCodegenPropertyConfig.useOptionalForGetter = true;
+        } else {
+            javaCodegenPropertyConfig.useOptionalForGetter = useOptionalForGetter == Boolean.TRUE;
+            javaCodegenPropertyConfig.useOptionalForField = useOptionalForField == Boolean.TRUE;
+        }
+
+        javaCodegenPropertyConfig.useOpenapiNullable =  openApiNullable;
+        javaCodegenPropertyConfig.useBeanValidation = useBeanValidation;
+        javaCodegenPropertyConfig.extraAnnotations = (property, list) ->
+        {
+            javaCodegenPropertyConfig.defaultExtraAnnotation(property, list);
+            if (this.lombokAnnotations != null && lombokAnnotations.containsKey("RequiredArgsConstructor") && !useBeanValidation) {
+                list.add("@lombok.NonNull");
+            }
+            if (this.lombokAnnotations != null &&  lombokAnnotations.containsKey("ToString") && property.isPassword) {
+                list.add("@lombok.ToString.Exclude");
+            }
+        };
+
+        return javaCodegenPropertyConfig;
+
+
+    }
+
     @Override
     public void setUseSwaggerUI(boolean useSwaggerUI) {
         this.useSwaggerUI = useSwaggerUI;
@@ -1403,4 +1461,5 @@ public class SpringCodegen extends AbstractJavaCodegen
     public String getResourceFolder() {
         return resourceFolder;
     }
+
 }

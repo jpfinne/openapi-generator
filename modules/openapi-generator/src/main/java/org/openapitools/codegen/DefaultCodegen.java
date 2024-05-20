@@ -17,7 +17,6 @@
 
 package org.openapitools.codegen;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Ticker;
@@ -26,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.samskivert.mustache.Mustache;
 import com.samskivert.mustache.Mustache.Compiler;
 import com.samskivert.mustache.Mustache.Lambda;
-import io.swagger.v3.core.util.AnnotationsUtils;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -65,7 +63,6 @@ import org.openapitools.codegen.model.WebhooksMap;
 import org.openapitools.codegen.serializer.SerializerUtils;
 import org.openapitools.codegen.templating.MustacheEngineAdapter;
 import org.openapitools.codegen.templating.mustache.*;
-import org.openapitools.codegen.utils.CamelizeOption;
 import org.openapitools.codegen.utils.ModelUtils;
 import org.openapitools.codegen.utils.OneOfImplementorAdditionalData;
 import org.slf4j.Logger;
@@ -3325,7 +3322,7 @@ public class DefaultCodegen implements CodegenConfig {
         Schema refSchema = ModelUtils.getReferencedSchema(openAPI, sc);
         if (refSchema.getProperties() != null && refSchema.getProperties().get(discPropName) != null) {
             Schema discSchema = (Schema) refSchema.getProperties().get(discPropName);
-            CodegenProperty cp = new CodegenProperty();
+            CodegenProperty cp = CodegenModelFactory.newInstance(CodegenModelType.PROPERTY);
             if (ModelUtils.isStringSchema(discSchema)) {
                 cp.isString = true;
             }
@@ -3348,7 +3345,7 @@ public class DefaultCodegen implements CodegenConfig {
             }
             if (composedSchema.getOneOf() != null && composedSchema.getOneOf().size() != 0) {
                 // All oneOf definitions must contain the discriminator
-                CodegenProperty cp = new CodegenProperty();
+                CodegenProperty cp = CodegenModelFactory.newInstance(CodegenModelType.PROPERTY);
                 for (Object oneOf : composedSchema.getOneOf()) {
                     String modelName = ModelUtils.getSimpleRef(((Schema) oneOf).get$ref());
                     CodegenProperty thisCp = discriminatorFound(composedSchemaName, (Schema) oneOf, discPropName, visitedSchemas);
@@ -3371,7 +3368,7 @@ public class DefaultCodegen implements CodegenConfig {
             }
             if (composedSchema.getAnyOf() != null && composedSchema.getAnyOf().size() != 0) {
                 // All anyOf definitions must contain the discriminator because a min of one must be selected
-                CodegenProperty cp = new CodegenProperty();
+                CodegenProperty cp = CodegenModelFactory.newInstance(CodegenModelType.PROPERTY);
                 for (Object anyOf : composedSchema.getAnyOf()) {
                     String modelName = ModelUtils.getSimpleRef(((Schema) anyOf).get$ref());
                     CodegenProperty thisCp = discriminatorFound(composedSchemaName, (Schema) anyOf, discPropName, visitedSchemas);

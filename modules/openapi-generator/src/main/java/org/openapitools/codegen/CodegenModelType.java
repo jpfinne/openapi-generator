@@ -17,22 +17,48 @@
 
 package org.openapitools.codegen;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.function.Supplier;
+
 public enum CodegenModelType {
 
-    MODEL(CodegenModel.class),
-    OPERATION(CodegenOperation.class),
-    PARAMETER(CodegenParameter.class),
-    PROPERTY(CodegenProperty.class),
-    RESPONSE(CodegenResponse.class),
-    SECURITY(CodegenSecurity.class);
+    MODEL(CodegenModel::new),
+    OPERATION(CodegenOperation::new),
+    PARAMETER(CodegenParameter::new),
+    PROPERTY(CodegenProperty::new),
+    RESPONSE(CodegenResponse::new),
+    SECURITY(CodegenSecurity::new);
 
-    private final Class<?> defaultImplementation;
+//    private final Class<?> defaultImplementation;
 
-    private CodegenModelType(Class<?> defaultImplementation) {
-        this.defaultImplementation = defaultImplementation;
+    private Supplier<Object> supplier;
+
+    private CodegenModelType(Supplier<Object> supplier) {
+        this.supplier = supplier;
+    }
+//    private Supplier<Object> supplier = () ->
+//    {
+//        try {
+//            return getDefaultImplementation().getDeclaredConstructor().newInstance();
+//        } catch (IllegalAccessException | InstantiationException | NoSuchMethodException | InvocationTargetException e) {
+//            throw new RuntimeException(e);
+//        }
+//    };
+
+//    private CodegenModelType(Class<?> defaultImplementation) {
+//        this.defaultImplementation = defaultImplementation;
+//    }
+
+//    public Class<?> getDefaultImplementation() {
+//        return defaultImplementation;
+//    }
+
+
+    public void setSupplier(Supplier<Object> supplier) {
+        this.supplier = supplier;
     }
 
-    public Class<?> getDefaultImplementation() {
-        return defaultImplementation;
+    public Supplier<Object> getSupplier() {
+        return supplier;
     }
 }
