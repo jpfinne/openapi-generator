@@ -286,7 +286,7 @@ public class ApexClientCodegen extends AbstractApexCodegen {
         }
     }
 
-    private void postProcessOpts() {
+    public void postProcessOpts() {
         supportingFiles.add(
                 new SupportingFile("client.mustache", srcPath + "classes", classPrefix + "Client.cls"));
         supportingFiles.add(new SupportingFile("cls-meta.mustache", srcPath + "classes",

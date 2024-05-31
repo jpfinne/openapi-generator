@@ -88,6 +88,7 @@ import org.openapitools.codegen.languages.features.CXFServerFeatures;
 import org.openapitools.codegen.meta.features.SecurityFeature;
 import org.openapitools.codegen.model.OperationMap;
 import org.openapitools.codegen.model.OperationsMap;
+import org.openapitools.codegen.testutils.ConfigAssert;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Ignore;
@@ -185,22 +186,28 @@ public class JavaClientCodegenTest {
         final JavaClientCodegen codegen = new JavaClientCodegen();
         codegen.processOpts();
 
-        Assertions.assertEquals(codegen.additionalProperties().get(CodegenConstants.HIDE_GENERATION_TIMESTAMP), Boolean.FALSE);
-        Assertions.assertFalse(codegen.isHideGenerationTimestamp());
+        ConfigAssert configAssert = new ConfigAssert(codegen.additionalProperties());
+//        Assertions.assertEquals(codegen.additionalProperties().get(CodegenConstants.HIDE_GENERATION_TIMESTAMP), Boolean.FALSE);
+//        Assertions.assertFalse(codegen.isHideGenerationTimestamp());
+        configAssert.assertValue(CodegenConstants.HIDE_GENERATION_TIMESTAMP, codegen::isHideGenerationTimestamp, Boolean.FALSE);
 
-        Assertions.assertEquals(codegen.modelPackage(), "org.openapitools.client.model");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
-                "org.openapitools.client.model");
-        Assertions.assertEquals(codegen.apiPackage(), "org.openapitools.client.api");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
-                "org.openapitools.client.api");
-        Assertions.assertEquals(codegen.getInvokerPackage(), "org.openapitools.client");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
-                "org.openapitools.client");
+//        Assertions.assertEquals(codegen.modelPackage(), "org.openapitools.client.model");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
+//                "org.openapitools.client.model");
+        configAssert.assertValue(CodegenConstants.MODEL_PACKAGE, codegen::modelPackage, "org.openapitools.client.model");
+//        Assertions.assertEquals(codegen.apiPackage(), "org.openapitools.client.api");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
+//                "org.openapitools.client.api");
+        configAssert.assertValue(CodegenConstants.API_PACKAGE, codegen::apiPackage, "org.openapitools.client.api");
+//        Assertions.assertEquals(codegen.getInvokerPackage(), "org.openapitools.client");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
+//                "org.openapitools.client");
+        configAssert.assertValue(CodegenConstants.INVOKER_PACKAGE, codegen::getInvokerPackage, "org.openapitools.client");
         Assertions.assertEquals(codegen.getSerializationLibrary(), JavaClientCodegen.SERIALIZATION_LIBRARY_GSON);
+        configAssert.assertValue(JavaClientCodegen.SERIALIZATION_LIBRARY_GSON, "true");
     }
 
     @Test
@@ -212,20 +219,27 @@ public class JavaClientCodegenTest {
         codegen.setInvokerPackage("xyz.yyyyy.zzzzzzz.invoker");
         codegen.setSerializationLibrary("JACKSON");
         codegen.processOpts();
+        ConfigAssert configAssert = new ConfigAssert(codegen.additionalProperties());
 
-        Assertions.assertEquals(codegen.additionalProperties().get(CodegenConstants.HIDE_GENERATION_TIMESTAMP), Boolean.TRUE);
-        Assertions.assertTrue(codegen.isHideGenerationTimestamp());
-        Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.model");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.model");
-        Assertions.assertEquals(codegen.apiPackage(), "xyz.yyyyy.zzzzzzz.api");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE), "xyz.yyyyy.zzzzzzz.api");
-        Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.invoker");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.invoker");
+//        Assertions.assertEquals(codegen.additionalProperties().get(CodegenConstants.HIDE_GENERATION_TIMESTAMP), Boolean.TRUE);
+//        Assertions.assertTrue(codegen.isHideGenerationTimestamp());
+        configAssert.assertValue(CodegenConstants.HIDE_GENERATION_TIMESTAMP, codegen::isHideGenerationTimestamp, Boolean.TRUE);
+//        Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.model");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.model");
+//        configAssert.assertValue(CodegenConstants.MODEL_PACKAGE, codegen::modelPackage, "xyz.yyyyy.zzzzzzz.model");
+        configAssert.assertValue(CodegenConstants.MODEL_PACKAGE, codegen::modelPackage, "xyz.yyyyy.zzzzzzz.model");
+//        Assertions.assertEquals(codegen.apiPackage(), "xyz.yyyyy.zzzzzzz.api");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE), "xyz.yyyyy.zzzzzzz.api");
+        configAssert.assertValue(CodegenConstants.API_PACKAGE, codegen::apiPackage, "xyz.yyyyy.zzzzzzz.api");
+
+//        Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.invoker");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.invoker");
+        configAssert.assertValue(CodegenConstants.INVOKER_PACKAGE, codegen::getInvokerPackage, "xyz.yyyyy.zzzzzzz.invoker");
         Assertions.assertEquals(codegen.getSerializationLibrary(), JavaClientCodegen.SERIALIZATION_LIBRARY_GSON); // the library JavaClientCodegen.OKHTTP_GSON only supports GSON
     }
 
@@ -244,20 +258,26 @@ public class JavaClientCodegenTest {
         codegen.additionalProperties().put(CodegenConstants.LIBRARY, JavaClientCodegen.JERSEY2);
         codegen.processOpts();
 
-        Assertions.assertEquals(codegen.additionalProperties().get(CodegenConstants.HIDE_GENERATION_TIMESTAMP), Boolean.TRUE);
+        ConfigAssert configAssert = new ConfigAssert(codegen.additionalProperties());
+        configAssert.assertValue(CodegenConstants.HIDE_GENERATION_TIMESTAMP, Boolean.TRUE);
+//        Assertions.assertEquals(codegen.additionalProperties().get(CodegenConstants.HIDE_GENERATION_TIMESTAMP), Boolean.TRUE);
         Assertions.assertTrue(codegen.isHideGenerationTimestamp());
         Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.mmmmm.model");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.mmmmm.model");
+        configAssert.assertValue(CodegenConstants.MODEL_PACKAGE, "xyz.yyyyy.zzzzzzz.mmmmm.model");
+
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.mmmmm.model");
         Assertions.assertEquals(codegen.apiPackage(), "xyz.yyyyy.zzzzzzz.aaaaa.api");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.aaaaa.api");
+        configAssert.assertValue(CodegenConstants.API_PACKAGE, "xyz.yyyyy.zzzzzzz.aaaaa.api");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.aaaaa.api");
         Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.iiii.invoker");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.iiii.invoker");
+        configAssert.assertValue(CodegenConstants.INVOKER_PACKAGE, "xyz.yyyyy.zzzzzzz.iiii.invoker");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.iiii.invoker");
         Assertions.assertEquals(codegen.getSerializationLibrary(), JavaClientCodegen.SERIALIZATION_LIBRARY_JACKSON);
     }
 
@@ -332,19 +352,22 @@ public class JavaClientCodegenTest {
                 .put(CodegenConstants.MODEL_PACKAGE, "xyz.yyyyy.zzzzzzz.mmmmm.model");
         codegen.additionalProperties().put(CodegenConstants.API_PACKAGE, "xyz.yyyyy.zzzzzzz.aaaaa.api");
         codegen.processOpts();
-
-        Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.mmmmm.model");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.mmmmm.model");
-        Assertions.assertEquals(codegen.apiPackage(), "xyz.yyyyy.zzzzzzz.aaaaa.api");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.aaaaa.api");
-        Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.aaaaa");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.aaaaa");
+        ConfigAssert configAssert = new ConfigAssert(codegen.additionalProperties());
+//        Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.mmmmm.model");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.mmmmm.model");
+        configAssert.assertValue(CodegenConstants.MODEL_PACKAGE, codegen::modelPackage, "xyz.yyyyy.zzzzzzz.mmmmm.model");
+//        Assertions.assertEquals(codegen.apiPackage(), "xyz.yyyyy.zzzzzzz.aaaaa.api");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.aaaaa.api");
+        configAssert.assertValue(CodegenConstants.API_PACKAGE, codegen::apiPackage, "xyz.yyyyy.zzzzzzz.aaaaa.api");
+//        Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.aaaaa");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.aaaaa");
+        configAssert.assertValue(CodegenConstants.INVOKER_PACKAGE, codegen::getInvokerPackage, "xyz.yyyyy.zzzzzzz.aaaaa");
     }
 
     @Test
@@ -354,19 +377,22 @@ public class JavaClientCodegenTest {
                 .additionalProperties()
                 .put(CodegenConstants.MODEL_PACKAGE, "xyz.yyyyy.zzzzzzz.mmmmm.model");
         codegen.processOpts();
-
-        Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.mmmmm.model");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.mmmmm.model");
-        Assertions.assertEquals(codegen.apiPackage(), "org.openapitools.client.api");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
-                "org.openapitools.client.api");
-        Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.mmmmm");
-        Assertions.assertEquals(
-                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
-                "xyz.yyyyy.zzzzzzz.mmmmm");
+        ConfigAssert configAssert = new ConfigAssert(codegen.additionalProperties());
+//        Assertions.assertEquals(codegen.modelPackage(), "xyz.yyyyy.zzzzzzz.mmmmm.model");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.MODEL_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.mmmmm.model");
+        configAssert.assertValue(CodegenConstants.MODEL_PACKAGE, codegen::modelPackage, "xyz.yyyyy.zzzzzzz.mmmmm.model");
+//        Assertions.assertEquals(codegen.apiPackage(), "org.openapitools.client.api");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.API_PACKAGE),
+//                "org.openapitools.client.api");
+        configAssert.assertValue(CodegenConstants.API_PACKAGE, codegen::apiPackage, "org.openapitools.client.api");
+//        Assertions.assertEquals(codegen.getInvokerPackage(), "xyz.yyyyy.zzzzzzz.mmmmm");
+//        Assertions.assertEquals(
+//                codegen.additionalProperties().get(CodegenConstants.INVOKER_PACKAGE),
+//                "xyz.yyyyy.zzzzzzz.mmmmm");
+        configAssert.assertValue(CodegenConstants.INVOKER_PACKAGE, codegen::getInvokerPackage, "xyz.yyyyy.zzzzzzz.mmmmm");
     }
 
     @Test
