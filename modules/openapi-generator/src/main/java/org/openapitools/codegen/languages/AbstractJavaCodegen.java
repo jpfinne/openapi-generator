@@ -348,6 +348,9 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
                     annotationLibraryCliOption.addEnum(al.toCliOptValue(), al.getDescription()));
             cliOptions.add(annotationLibraryCliOption);
         }
+
+        CodegenModelType.PROPERTY.setSupplier(() -> new JavaCodegenProperty());
+        CodegenModelType.MODEL.setSupplier(() -> new JavaCodegenModel());
     }
 
     @Override
@@ -811,23 +814,23 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             }
         }
 
-        if (isGenerateConstructorWithAllArgs()) {
-            // conditionally force the generation of all args constructor.
-            for (CodegenModel cm : allModels.values()) {
-                if (isConstructorWithAllArgsAllowed(cm)) {
-                    cm.vendorExtensions.put("x-java-all-args-constructor", true);
-                    List<Object> constructorArgs = new ArrayList<>();
-                    // vendorExtensions.x-java-all-args-constructor-vars should be equivalent to allVars
-                    // but it is not reliable when openapiNormalizer.REFACTOR_ALLOF_WITH_PROPERTIES_ONLY is disabled
-                    cm.vendorExtensions.put("x-java-all-args-constructor-vars", constructorArgs);
-                    if (cm.vars.size() + cm.parentVars.size() != cm.allVars.size()) {
-                        once(LOGGER).warn("Unexpected allVars for {} expecting:{} vars. actual:{} vars", cm.name, cm.vars.size() + cm.parentVars.size(), cm.allVars.size());
-                    }
-                    constructorArgs.addAll(cm.vars);
-                    constructorArgs.addAll(cm.parentVars);
-                }
-            }
-        }
+//        if (isGenerateConstructorWithAllArgs()) {
+//            // conditionally force the generation of all args constructor.
+//            for (CodegenModel cm : allModels.values()) {
+//                if (isConstructorWithAllArgsAllowed(cm)) {
+//                    cm.vendorExtensions.put("x-java-all-args-constructor", true);
+//                    List<Object> constructorArgs = new ArrayList<>();
+//                    // vendorExtensions.x-java-all-args-constructor-vars should be equivalent to allVars
+//                    // but it is not reliable when openapiNormalizer.REFACTOR_ALLOF_WITH_PROPERTIES_ONLY is disabled
+//                    cm.vendorExtensions.put("x-java-all-args-constructor-vars", constructorArgs);
+//                    if (cm.vars.size() + cm.parentVars.size() != cm.allVars.size()) {
+//                        once(LOGGER).warn("Unexpected allVars for {} expecting:{} vars. actual:{} vars", cm.name, cm.vars.size() + cm.parentVars.size(), cm.allVars.size());
+//                    }
+//                    constructorArgs.addAll(cm.vars);
+//                    constructorArgs.addAll(cm.parentVars);
+//                }
+//            }
+//        }
 
         return objs;
     }
@@ -1089,13 +1092,76 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         return toModelName(name);
     }
 
+    protected class JavaCodegenProperty extends CodegenProperty implements SchemaConsumer {
+
+        protected String dataTypeNoValidation;
+        protected String datatypeWithEnumNoValidation;
+
+        @Override
+        public void accept(Schema schema) {
+            this.dataTypeNoValidation = getTypeDeclaration(schema, false);
+            this.datatypeWithEnumNoValidation = isEnum ? datatypeWithEnum: dataTypeNoValidation;
+
+                if ("response" == name) {
+                    this.dataType = this.dataTypeNoValidation;
+                }
+
+        }
+    }
+
+    protected class JavaCodegenModel extends CodegenModel {
+
+        public boolean isAllArgsConstructor() {
+            return generateConstructorWithAllArgs && isConstructorWithAllArgsAllowed(this);
+        }
+
+        List<Object> getAllArgsArguments() {
+            if (vars.size() + parentVars.size() != allVars.size()) {
+                once(LOGGER).warn("Unexpected allVars for {} expecting:{} vars. actual:{} vars", name, vars.size() + parentVars.size(), allVars.size());
+            }
+            List<Object> constructorArgs = new ArrayList<>();
+            constructorArgs.addAll(vars);
+            constructorArgs.addAll(parentVars);
+            return constructorArgs;
+        }
+
+    }
+
+    private String getTypeDeclarationForArray(Schema<?> items) {
+        String typeDeclaration = getTypeDeclaration(items);
+        String beanValidation = getBeanValidation(items);
+        return getTypeDeclarationForArray(typeDeclaration, beanValidation);
+    }
+
+    private String getTypeDeclarationForArray(String typeDeclaration, String beanValidation) {
+        int idxLt = typeDeclaration.indexOf('<');
+
+        int idx = idxLt < 0 ?
+                typeDeclaration.lastIndexOf('.'):
+                // last dot before the generic like in List<com.mycompany.Container<java.lang.Object>
+                typeDeclaration.substring(0, idxLt).lastIndexOf('.');
+        if (idx > 0) {
+            // fix full qualified name, we need List<java.lang.@Valid String>
+            // or List<com.mycompany.@Valid Container<java.lang.Object>
+            return typeDeclaration.substring(0, idx + 1) + beanValidation
+                    + typeDeclaration.substring(idx + 1);
+        } else {
+            return beanValidation + typeDeclaration;
+        }
+    }
+
     @Override
     public String getTypeDeclaration(Schema p) {
+        return getTypeDeclaration(p, true);
+    }
+
+    protected String getTypeDeclaration(Schema p, boolean withBeanValidation) {
         Schema<?> schema = unaliasSchema(p);
         Schema<?> target = ModelUtils.isGenerateAliasAsModel() ? p : schema;
         if (ModelUtils.isArraySchema(target)) {
             Schema<?> items = ModelUtils.getSchemaItems(schema);
-            return getSchemaType(target) + "<" + getBeanValidation(items) + getTypeDeclaration(items) + ">";
+            String beanValidation = withBeanValidation?getBeanValidation(items):"";
+            return getSchemaType(target) + "<" + beanValidation + getTypeDeclaration(items) + ">";
         } else if (ModelUtils.isMapSchema(target)) {
             // Note: ModelUtils.isMapSchema(p) returns true when p is a composed schema that also defines
             // additionalproperties: true
@@ -1105,7 +1171,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
                 inner = new StringSchema().description("TODO default missing map inner type to string");
                 p.setAdditionalProperties(inner);
             }
-            return getSchemaType(target) + "<String, " + getTypeDeclaration(inner) + ">";
+            return getSchemaType(target) + "<String, " + getTypeDeclaration(inner, withBeanValidation) + ">";
         }
         return super.getTypeDeclaration(target);
     }

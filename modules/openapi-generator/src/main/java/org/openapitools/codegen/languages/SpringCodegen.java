@@ -44,6 +44,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.openapitools.codegen.CliOption;
 import org.openapitools.codegen.CodegenConstants;
 import org.openapitools.codegen.CodegenModel;
+import org.openapitools.codegen.CodegenModelType;
 import org.openapitools.codegen.CodegenOperation;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
@@ -277,6 +278,8 @@ public class SpringCodegen extends AbstractJavaCodegen
                 .defaultValue(SPRING_BOOT);
         library.setEnum(supportedLibraries);
         cliOptions.add(library);
+        CodegenModelType.MODEL.setSupplier(() -> new SpringCodegenModel());
+        CodegenModelType.PROPERTY.setSupplier(() -> new SpringCodegenProperty());
 
     }
 
@@ -1216,22 +1219,6 @@ public class SpringCodegen extends AbstractJavaCodegen
     }
 
     @Override
-    public Map<String, ModelsMap> postProcessAllModels(Map<String, ModelsMap> objs) {
-        objs = super.postProcessAllModels(objs);
-
-        Map<String, CodegenModel> allModels = getAllModels(objs);
-        // conditionally force the generation of no args constructor
-        for (CodegenModel cm : allModels.values()) {
-            boolean hasLombokNoArgsConstructor = lombokAnnotations != null && lombokAnnotations.containsKey("NoArgsConstructor");
-            if (!hasLombokNoArgsConstructor
-                  &&  (cm.hasRequired || cm.vendorExtensions.containsKey("x-java-all-args-constructor"))) {
-                cm.vendorExtensions.put("x-java-no-args-constructor", true);
-            }
-        }
-        return objs;
-    }
-
-    @Override
     public ModelsMap postProcessModelsEnum(ModelsMap objs) {
         objs = super.postProcessModelsEnum(objs);
 
@@ -1287,5 +1274,68 @@ public class SpringCodegen extends AbstractJavaCodegen
         extensions.add(VendorExtension.X_VERSION_PARAM);
         extensions.add(VendorExtension.X_PATTERN_MESSAGE);
         return extensions;
+    }
+
+    protected class SpringCodegenProperty extends JavaCodegenProperty {
+        BeanValidation getCustomBeanValidation() {
+            if (!useBeanValidation) {
+                return null;
+            }
+
+            return new BeanValidation();
+        }
+
+
+        String getNullableDataType() {
+            return computeNullableDataType("");
+        }
+
+        String computeNullableDataType(String beanValidation) {
+            if (openApiNullable) {
+                if (isNullable) {
+                    return "JsonNullable<" + beanValidation + datatypeWithEnum + ">";
+                } else if (useOptional && !required && !isNullable && !isContainer) {
+                    return "Optional<" + beanValidation + datatypeWithEnum + ">";
+                }
+            }
+            return datatypeWithEnum;
+        }
+
+        Mustache.Lambda getNullableDataTypeBeanValidation() {
+
+            return (fragment, writer) -> {
+                fragment.executeTemplate();
+                String beanValidation = fragment.execute();
+                String datatype = computeNullableDataType(StringUtils.defaultIfEmpty(beanValidation, ""));
+                writer.write(datatype);
+            };
+        }
+
+
+        class BeanValidation {
+            String getAnnotations() {
+                return ((required && !isReadOnly)?"@NotNull ": "") +
+                        (((isContainer && !isPrimitiveType && isEnum) ||
+                                (!isContainer && !isPrimitiveType))?
+                        "@Valid ": "");
+            }
+            boolean isUsePartialBeanValidationCode() {
+                return !openApiNullable ||
+                        (openApiNullable && !useOptional) ||
+                        (useOptional && openApiNullable &&
+                                ((isContainer && !required) || required));
+            }
+        }
+    }
+
+
+    protected class SpringCodegenModel extends JavaCodegenModel {
+
+        boolean getNoArgConstructor() {
+            boolean hasLombokNoArgsConstructor = lombokAnnotations != null && lombokAnnotations.containsKey("NoArgsConstructor");
+            return !hasLombokNoArgsConstructor
+                    &&  (hasRequired || isAllArgsConstructor());
+        }
+
     }
 }

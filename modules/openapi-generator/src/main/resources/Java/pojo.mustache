@@ -102,7 +102,7 @@ public class {{classname}} {{#parent}}extends {{{.}}} {{/parent}}{{#vendorExtens
   {{#vendorExtensions.x-has-readonly-properties}}
   {{^withXml}}
   /**
-   * Constructor with only readonly parameters{{#generateConstructorWithAllArgs}}{{^vendorExtensions.x-java-all-args-constructor}} and all parameters{{/vendorExtensions.x-java-all-args-constructor}}{{/generateConstructorWithAllArgs}}
+   * Constructor with only readonly parameters{{#generateConstructorWithAllArgs}}{{^allArgsConstructor}} and all parameters{{/allArgsConstructor}}{{/generateConstructorWithAllArgs}}
    */
   {{#jsonb}}@JsonbCreator{{/jsonb}}{{#jackson}}@JsonCreator{{/jackson}}
   public {{classname}}(
@@ -117,7 +117,7 @@ public class {{classname}} {{#parent}}extends {{{.}}} {{/parent}}{{#vendorExtens
   }
   {{/withXml}}
   {{/vendorExtensions.x-has-readonly-properties}}
-{{#vendorExtensions.x-java-all-args-constructor}}
+{{#allArgsConstructor}}
 
   /**
    * Constructor with all args parameters
@@ -130,7 +130,7 @@ public class {{classname}} {{#parent}}extends {{{.}}} {{/parent}}{{#vendorExtens
     this.{{name}} = {{#vendorExtensions.x-is-jackson-optional-nullable}}{{name}} == null ? JsonNullable.<{{{datatypeWithEnum}}}>undefined() : JsonNullable.of({{name}}){{/vendorExtensions.x-is-jackson-optional-nullable}}{{^vendorExtensions.x-is-jackson-optional-nullable}}{{name}}{{/vendorExtensions.x-is-jackson-optional-nullable}};
 {{/vars}}
   }
-{{/vendorExtensions.x-java-all-args-constructor}}
+{{/allArgsConstructor}}
 
 {{#vars}}
   {{^isReadOnly}}

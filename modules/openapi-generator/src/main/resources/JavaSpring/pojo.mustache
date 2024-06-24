@@ -93,19 +93,19 @@ public class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}{{^parent}}
   {{/openApiNullable}}
   {{/isContainer}}
   {{/vars}}
-  {{#vendorExtensions.x-java-no-args-constructor}}
+  {{#noArgConstructor}}
 
   public {{classname}}() {
     super();
   }
-  {{/vendorExtensions.x-java-no-args-constructor}}
+  {{/noArgConstructor}}
   {{^lombok.Data}}
   {{^lombok.RequiredArgsConstructor}}
   {{#generatedConstructorWithRequiredArgs}}
   {{#hasRequired}}
 
   /**
-   * Constructor with only required parameters{{#generateConstructorWithAllArgs}}{{^vendorExtensions.x-java-all-args-constructor}} and all parameters{{/vendorExtensions.x-java-all-args-constructor}}{{/generateConstructorWithAllArgs}}
+   * Constructor with only required parameters{{#generateConstructorWithAllArgs}}{{^allArgsConstructor}} and all parameters{{/allArgsConstructor}}{{/generateConstructorWithAllArgs}}
    */
   public {{classname}}({{#requiredVars}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/requiredVars}}) {
     {{#parent}}
@@ -125,12 +125,12 @@ public class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}{{^parent}}
   {{/hasRequired}}
   {{/generatedConstructorWithRequiredArgs}}
   {{/lombok.RequiredArgsConstructor}}
-  {{#vendorExtensions.x-java-all-args-constructor}}
+  {{#allArgsConstructor}}
 
   /**
    * Constructor with all args parameters
    */
-  public {{classname}}({{#vendorExtensions.x-java-all-args-constructor-vars}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-java-all-args-constructor-vars}}) {
+  public {{classname}}({{#allArgsArguments}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/allArgsArguments}}) {
   {{#parent}}
       super({{#parentVars}}{{name}}{{^-last}}, {{/-last}}{{/parentVars}});
   {{/parent}}
@@ -143,7 +143,7 @@ public class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}{{^parent}}
   {{/openApiNullable}}
   {{/vars}}
   }
-  {{/vendorExtensions.x-java-all-args-constructor}}
+  {{/allArgsConstructor}}
   {{/lombok.Data}}
   {{#vars}}
   {{^lombok.Data}}
@@ -219,6 +219,7 @@ public class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}{{^parent}}
   {{#vendorExtensions.x-extra-annotation}}
   {{{vendorExtensions.x-extra-annotation}}}
   {{/vendorExtensions.x-extra-annotation}}
+
   {{#useBeanValidation}}
   {{>beanValidation}}
   {{/useBeanValidation}}

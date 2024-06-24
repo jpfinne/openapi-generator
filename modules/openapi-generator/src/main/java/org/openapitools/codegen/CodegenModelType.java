@@ -19,19 +19,29 @@ package org.openapitools.codegen;
 
 import lombok.Getter;
 
+import java.util.function.Supplier;
+
 @Getter public enum CodegenModelType {
 
-    MODEL(CodegenModel.class),
-    OPERATION(CodegenOperation.class),
-    PARAMETER(CodegenParameter.class),
-    PROPERTY(CodegenProperty.class),
-    RESPONSE(CodegenResponse.class),
-    SECURITY(CodegenSecurity.class);
+    MODEL(CodegenModel::new),
+    OPERATION(CodegenOperation::new),
+    PARAMETER(CodegenParameter::new),
+    PROPERTY(CodegenProperty::new),
+    RESPONSE(CodegenResponse::new),
+    SECURITY(CodegenSecurity::new);
 
-    private final Class<?> defaultImplementation;
+    private Supplier<Object> supplier;
 
-    private CodegenModelType(Class<?> defaultImplementation) {
-        this.defaultImplementation = defaultImplementation;
+    private CodegenModelType(Supplier<Object> supplier) {
+        this.supplier = supplier;
     }
 
+    // Configurable CodegenModelFactory.newInstance
+    public void setSupplier(Supplier<Object> supplier) {
+        this.supplier = supplier;
+    }
+
+    public Supplier<Object> getSupplier() {
+        return supplier;
+    }
 }

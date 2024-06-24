@@ -3183,6 +3183,8 @@ public class DefaultCodegen implements CodegenConfig {
             }
         }
 
+        SchemaConsumer.acceptSchema(this, schema);
+
         return m;
     }
 
@@ -3252,7 +3254,7 @@ public class DefaultCodegen implements CodegenConfig {
         Schema refSchema = ModelUtils.getReferencedSchema(openAPI, sc);
         if (refSchema.getProperties() != null && refSchema.getProperties().get(discPropName) != null) {
             Schema discSchema = (Schema) refSchema.getProperties().get(discPropName);
-            CodegenProperty cp = new CodegenProperty();
+            CodegenProperty cp = CodegenModelFactory.newInstance(CodegenModelType.PROPERTY);
             if (ModelUtils.isStringSchema(discSchema)) {
                 cp.isString = true;
             }
@@ -3275,7 +3277,7 @@ public class DefaultCodegen implements CodegenConfig {
             }
             if (composedSchema.getOneOf() != null && composedSchema.getOneOf().size() != 0) {
                 // All oneOf definitions must contain the discriminator
-                CodegenProperty cp = new CodegenProperty();
+                CodegenProperty cp = CodegenModelFactory.newInstance(CodegenModelType.PROPERTY);
                 for (Object oneOf : composedSchema.getOneOf()) {
                     String modelName = ModelUtils.getSimpleRef(((Schema) oneOf).get$ref());
                     CodegenProperty thisCp = discriminatorFound(composedSchemaName, (Schema) oneOf, discPropName, visitedSchemas);
@@ -3298,7 +3300,7 @@ public class DefaultCodegen implements CodegenConfig {
             }
             if (composedSchema.getAnyOf() != null && composedSchema.getAnyOf().size() != 0) {
                 // All anyOf definitions must contain the discriminator because a min of one must be selected
-                CodegenProperty cp = new CodegenProperty();
+                CodegenProperty cp = CodegenModelFactory.newInstance(CodegenModelType.PROPERTY);
                 for (Object anyOf : composedSchema.getAnyOf()) {
                     String modelName = ModelUtils.getSimpleRef(((Schema) anyOf).get$ref());
                     CodegenProperty thisCp = discriminatorFound(composedSchemaName, (Schema) anyOf, discPropName, visitedSchemas);
@@ -4135,6 +4137,12 @@ public class DefaultCodegen implements CodegenConfig {
             setNonArrayMapProperty(property, type);
             property.isModel = (ModelUtils.isComposedSchema(referencedSchema) || ModelUtils.isObjectSchema(referencedSchema)) && ModelUtils.isModel(referencedSchema);
         }
+
+
+        /**
+         * allow customization
+         */
+        SchemaConsumer.acceptSchema(property, p);
 
         // restore original schema with default value, nullable, readonly etc
         if (original != null) {
@@ -5021,6 +5029,7 @@ public class DefaultCodegen implements CodegenConfig {
             r.simpleType = true;
         }
 
+        SchemaConsumer.acceptSchema(r, responseSchema);
         postProcessResponseWithProperty(r, cp);
         return r;
     }
@@ -8170,7 +8179,7 @@ public class DefaultCodegen implements CodegenConfig {
             return;
         }
 
-        CodegenModel cm = new CodegenModel();
+        CodegenModel cm = CodegenModelFactory.newInstance(CodegenModelType.MODEL);
 
         cm.setDiscriminator(createDiscriminator("", cs));
 

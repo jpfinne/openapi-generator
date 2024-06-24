@@ -17,15 +17,9 @@
 
 package org.openapitools.codegen;
 
-import java.lang.reflect.InvocationTargetException;
-
 public final class CodegenModelFactory {
     @SuppressWarnings("unchecked")
     public static <T> T newInstance(CodegenModelType type) {
-        try {
-            return (T) type.getDefaultImplementation().getDeclaredConstructor().newInstance();
-        } catch (IllegalAccessException | InstantiationException | NoSuchMethodException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
+        return (T)type.getSupplier().get();
     }
 }

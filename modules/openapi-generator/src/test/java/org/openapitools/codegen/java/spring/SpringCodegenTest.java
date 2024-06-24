@@ -1047,7 +1047,7 @@ public class SpringCodegenTest {
 
     // Helper function, intended to reduce boilerplate
     private Map<String, File> generateFiles(SpringCodegen codegen, String filePath) throws IOException {
-        final File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        final File output = new File("c:/temp/openapigenerator" ); //Files.createTempDirectory("test").toFile().getCanonicalFile();
         output.deleteOnExit();
         final String outputPath = output.getAbsolutePath().replace('\\', '/');
 
@@ -2741,7 +2741,8 @@ public class SpringCodegenTest {
     private Map<String, File> generateFromContract(String url, String library, Map<String, Object> additionalProperties,
                                                    Consumer<CodegenConfigurator> consumer) throws IOException {
 
-        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        File output = new File("c:/temp/openapigenerator");
+                //Files.createTempDirectory("test").toFile().getCanonicalFile();
         output.deleteOnExit();
 
         final CodegenConfigurator configurator = new CodegenConfigurator()
@@ -3382,7 +3383,7 @@ public class SpringCodegenTest {
 
     @Test
     public void testModelsWithNoneOptionalAndJsonNullable() throws IOException {
-        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        File output = new File("c:/temp/openapigenerator");//Files.createTempDirectory("test").toFile().getCanonicalFile();
         output.deleteOnExit();
         String outputPath = output.getAbsolutePath().replace('\\', '/');
 
@@ -5001,5 +5002,9 @@ public class SpringCodegenTest {
             .toInnerClassAssert()
             .assertMethod("build")
             .doesNotHaveAnnotation("Deprecated");
+    }
+
+    @Test void testReturnOperationNoBeanValidation() throws IOException {
+        Map<String, File> files = generateFromContract("src/test/resources/3_0/validation.yaml", null);
     }
 }
