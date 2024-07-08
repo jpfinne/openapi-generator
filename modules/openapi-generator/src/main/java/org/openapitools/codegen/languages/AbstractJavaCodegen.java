@@ -871,9 +871,26 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         return sanitizeName(name, "\\W-[\\$]");
     }
 
+    /**
+     * Avoid Overloading getClass Method.
+     */
     private static String sanetizeNamePropertyClass(String name) {
         return name.toLowerCase(Locale.ROOT).matches("^_*class$")? "propertyClass": name;
    }
+
+    /**
+    * replace any non-word character to underscore.
+     */
+    private static String saniziteVarNameAllNonWordCharacters(String name) {
+        return name.replaceAll("\\W+", "_");
+    }
+
+    /**
+     * replace any characters not allowed in java identifiers to underscore.
+     */
+    private static String saniziteVarNameNonJavaIdentifier(String name) {
+        return name.replaceAll("[^a-zA-Z0-9$]+", "_");
+    }
 
     // numbers are not allowed at the beginning
     private static String sanetizeNameStartingWithDigits(String name) {
@@ -903,9 +920,9 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         return name;
     }
 
-    // for reserved word, prefix with _
+    // for reserved word or word starting with number prefix with _
     private String sanetizeNameReservedWord(String name) {
-        return isReservedWord(name)? escapeReservedWord(name): name;
+        return isReservedWord(name) || name.matches("^\\d.*")? escapeReservedWord(name): name;
     }
 
     @Override
@@ -2002,28 +2019,31 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             return varName;
         }
 
-        // replace any non-word character to underscore
-        String var = value.replaceAll("\\W+", "_");
+        String var = value;
 
         switch (enumPropertyNaming) {
             case original:
+                var = saniziteVarNameNonJavaIdentifier(var);
                 // NOTE: This is provided as a last-case allowance, but will still result in reserved words being escaped.
                 break;
             case camelCase:
+                var = saniziteVarNameNonJavaIdentifier(var);
                 var = sanetizeNameCamelCaseDollarSign(var);
                 break;
             case PascalCase:
+                var = saniziteVarNameNonJavaIdentifier(var);
                 var = StringUtils.capitalize(sanetizeNameCamelCaseDollarSign(var));
                 break;
             case snake_case:
+                var = saniziteVarNameNonJavaIdentifier(var);
                 // NOTE: hyphens are already replaced by underscores.
-                // Call underscore anyway (just in case)
-                var = underscore(var);
                 break;
             case UPPERCASE:
                 // This is the backward compatible behaviour
-               var = underscore(var).toUpperCase(Locale.ROOT);
-               // Note; don't know why we need this. Keep it for backward compatibility.
+
+                var = saniziteVarNameAllNonWordCharacters(var);
+                var = underscore(var).toUpperCase(Locale.ROOT);
+               // Note; don't know why we need this. Keep it for backward compatibility only in the default enumPropertyNaming
                var = sanetizeNamePropertyClass(var);
                break;
         }
