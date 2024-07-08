@@ -190,6 +190,9 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     protected boolean useBeanValidation = false;
     private Map<String, String> schemaKeyToModelNameCache = new HashMap<>();
 
+    @Getter @Setter
+    CodegenConstants.ENUM_PROPERTY_NAMING_TYPE enumPropertyNaming = CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.UPPERCASE;
+
     public AbstractJavaCodegen() {
         super();
 
@@ -305,6 +308,8 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         cliOptions.add(CliOption.newBoolean(CodegenConstants.HIDE_GENERATION_TIMESTAMP, CodegenConstants.HIDE_GENERATION_TIMESTAMP_DESC, this.isHideGenerationTimestamp()));
         cliOptions.add(CliOption.newBoolean(WITH_XML, "whether to include support for application/xml content type and include XML annotations in the model (works with libraries that provide support for JSON and XML)"));
         cliOptions.add(CliOption.newBoolean(USE_ONE_OF_INTERFACES, "whether to use a java interface to describe a set of oneOf options, where each option is a class that implements the interface"));
+        cliOptions.add(new CliOption(CodegenConstants.ENUM_PROPERTY_NAMING, CodegenConstants.ENUM_PROPERTY_NAMING_DESC)
+                .defaultValue(enumPropertyNaming.name()));
 
         CliOption dateLibrary = new CliOption(DATE_LIBRARY, "Option. Date library to use").defaultValue(this.getDateLibrary());
         Map<String, String> dateOptions = new HashMap<>();
@@ -554,6 +559,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         convertPropertyToBooleanAndWriteBack(CAMEL_CASE_DOLLAR_SIGN, this::setCamelCaseDollarSign);
         convertPropertyToBooleanAndWriteBack(USE_ONE_OF_INTERFACES, this::setUseOneOfInterfaces);
 
+        convertPropertyToTypeAndWriteBack(CodegenConstants.ENUM_PROPERTY_NAMING, CodegenConstants.ENUM_PROPERTY_NAMING_TYPE::valueOf, this::setEnumPropertyNaming);
         if (!StringUtils.isEmpty(parentGroupId) && !StringUtils.isEmpty(parentArtifactId) && !StringUtils.isEmpty(parentVersion)) {
             additionalProperties.put("parentOverridden", true);
         }
@@ -858,60 +864,78 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         return toApiName(name);
     }
 
+
+    // TODO: document the purpose of this sanitize
+    private String sanitizeNameNonwordDashDollar(String name) {
+        // sanitize name
+        return sanitizeName(name, "\\W-[\\$]");
+    }
+
+    private static String sanetizeNamePropertyClass(String name) {
+        return name.toLowerCase(Locale.ROOT).matches("^_*class$")? "propertyClass": name;
+   }
+
+    // numbers are not allowed at the beginning
+    private static String sanetizeNameStartingWithDigits(String name) {
+        return name.matches("^\\d.*")? "_" + name: name;
+    }
+
+    private static String sanetizeNameOnlyUnderscore(String name) {
+        return "_".equals(name)? "_u": name;
+    }
+
+    // camelize (lower first character) the variable name
+    // pet_id => petId
+    private String sanetizeNameCamelCaseDollarSign(String name) {
+        if (camelCaseDollarSign) {
+            return camelize(name, LOWERCASE_FIRST_CHAR);
+        } else {
+            return camelize(name, LOWERCASE_FIRST_LETTER);
+        }
+    }
+
+    private String sanetizeNameSpecialCharacters(String name) {
+        // If name contains special chars -> replace them.
+        if (name.chars().anyMatch(character -> specialCharReplacements.containsKey(String.valueOf(character)))) {
+            List<String> allowedCharacters = Arrays.asList("_", "$");
+            return escape(name, specialCharReplacements, allowedCharacters, "_");
+        }
+        return name;
+    }
+
+    // for reserved word, prefix with _
+    private String sanetizeNameReservedWord(String name) {
+        return isReservedWord(name)? escapeReservedWord(name): name;
+    }
+
     @Override
-    public String toVarName(String name) {
+    public String toVarName(final String name) {
         // obtain the name from nameMapping directly if provided
         if (nameMapping.containsKey(name)) {
             return nameMapping.get(name);
         }
 
-        // sanitize name
-        name = sanitizeName(name, "\\W-[\\$]"); // FIXME: a parameter should not be assigned. Also declare the methods parameters as 'final'.
+        String var = name;
 
-        if (name.toLowerCase(Locale.ROOT).matches("^_*class$")) {
-            return "propertyClass";
-        }
-
-        if ("_".equals(name)) {
-            name = "_u";
-        }
-
-        // numbers are not allowed at the beginning
-        if (name.matches("^\\d.*")) {
-            name = "_" + name;
-        }
+        var = sanitizeNameNonwordDashDollar(var);
+        var = sanetizeNamePropertyClass(var);
+        var = sanetizeNameOnlyUnderscore(var);
+        var = sanetizeNameStartingWithDigits(var);
 
         // if it's all upper case, do nothing
-        if (name.matches("^[A-Z0-9_]*$")) {
-            return name;
+        if (var.matches("^[A-Z0-9_]*$")) {
+            return var;
         }
 
-        if (startsWithTwoUppercaseLetters(name)) {
-            name = name.substring(0, 2).toLowerCase(Locale.ROOT) + name.substring(2);
+        if (startsWithTwoUppercaseLetters(var)) {
+            var = var.substring(0, 2).toLowerCase(Locale.ROOT) + var.substring(2);
         }
 
-        // If name contains special chars -> replace them.
-        if ((((CharSequence) name).chars().anyMatch(character -> specialCharReplacements.containsKey(String.valueOf((char) character))))) {
-            List<String> allowedCharacters = new ArrayList<>();
-            allowedCharacters.add("_");
-            allowedCharacters.add("$");
-            name = escape(name, specialCharReplacements, allowedCharacters, "_");
-        }
+        var = sanetizeNameSpecialCharacters(var);
+        var = sanetizeNameCamelCaseDollarSign(var);
+        var = sanetizeNameReservedWord(var);
 
-        // camelize (lower first character) the variable name
-        // pet_id => petId
-        if (camelCaseDollarSign) {
-            name = camelize(name, LOWERCASE_FIRST_CHAR);
-        } else {
-            name = camelize(name, LOWERCASE_FIRST_LETTER);
-        }
-
-        // for reserved word or word starting with number, append _
-        if (isReservedWord(name) || name.matches("^\\d.*")) {
-            name = escapeReservedWord(name);
-        }
-
-        return name;
+        return var;
     }
 
     private boolean startsWithTwoUppercaseLetters(String name) {
@@ -1955,7 +1979,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             return enumNameMapping.get(value);
         }
 
-        if (value.length() == 0) {
+        if (value.isEmpty()) {
             return "EMPTY";
         }
 
@@ -1964,7 +1988,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             return getSymbolName(value).toUpperCase(Locale.ROOT);
         }
 
-        if (" ".equals(value)) {
+        if (StringUtils.isBlank(value)) {
             return "SPACE";
         }
 
@@ -1978,12 +2002,43 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             return varName;
         }
 
-        // string
-        String var = underscore(value.replaceAll("\\W+", "_")).toUpperCase(Locale.ROOT);
-        if (var.matches("\\d.*")) {
-            var = "_" + var;
+        // replace any non-word character to underscore
+        String var = value.replaceAll("\\W+", "_");
+
+        switch (enumPropertyNaming) {
+            case original:
+                // NOTE: This is provided as a last-case allowance, but will still result in reserved words being escaped.
+                break;
+            case camelCase:
+                var = sanetizeNameCamelCaseDollarSign(var);
+                break;
+            case PascalCase:
+                var = StringUtils.capitalize(sanetizeNameCamelCaseDollarSign(var));
+                break;
+            case snake_case:
+                // NOTE: hyphens are already replaced by underscores.
+                // Call underscore anyway (just in case)
+                var = underscore(var);
+                break;
+            case UPPERCASE:
+                // This is the backward compatible behaviour
+               var = underscore(var).toUpperCase(Locale.ROOT);
+               // Note; don't know why we need this. Keep it for backward compatibility.
+               var = sanetizeNamePropertyClass(var);
+               break;
         }
-        return this.toVarName(var);
+
+        /*
+            fix uncompilable code:
+            - underscore
+            - name starting with a digit
+            - reserved words
+         */
+
+        var = sanetizeNameStartingWithDigits(var);
+        var = sanetizeNameOnlyUnderscore(var);
+        var = sanetizeNameReservedWord(var);
+        return var;
     }
 
     @Override

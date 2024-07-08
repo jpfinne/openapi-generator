@@ -99,6 +99,19 @@ public class AbstractJavaCodegenTest {
     }
 
     @Test
+    public void toEnumVarName_original() {
+        codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.original);
+        Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "enumValue");
+    }
+
+
+    @Test
+    public void toEnumVarName_snake_case() {
+        codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.snake_case);
+        Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "enum_value");
+    }
+
+    @Test
     public void toModelNameShouldNotUseProvidedMapping() {
         codegen.importMapping().put("json_myclass", "com.test.MyClass");
         Assert.assertEquals(codegen.toModelName("json_myclass"), "JsonMyclass");
