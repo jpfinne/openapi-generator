@@ -864,8 +864,6 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         return toApiName(name);
     }
 
-
-    // TODO: document the purpose of this sanitize
     private String sanitizeNameNonwordDashDollar(String name) {
         // sanitize name
         return sanitizeName(name, "\\W-[\\$]");
@@ -874,22 +872,22 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     /**
      * Avoid Overloading getClass Method.
      */
-    private static String sanetizeNamePropertyClass(String name) {
+    private static String sanetizeVarNamePropertyClass(String name) {
         return name.toLowerCase(Locale.ROOT).matches("^_*class$")? "propertyClass": name;
    }
 
     /**
     * replace any non-word character to underscore.
      */
-    private static String saniziteVarNameAllNonWordCharacters(String name) {
+    private static String sanitizeVarNameAllNonWordCharacters(String name) {
         return name.replaceAll("\\W+", "_");
     }
 
     /**
      * replace any characters not allowed in java identifiers to underscore.
      */
-    private static String saniziteVarNameNonJavaIdentifier(String name) {
-        return name.replaceAll("[^a-zA-Z0-9$]+", "_");
+    private static String sanitizeVarNameNonJavaIdentifier(String name) {
+        return name.replaceAll("[^a-zA-Z0-9$_]+", "_");
     }
 
     // numbers are not allowed at the beginning
@@ -897,19 +895,33 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         return name.matches("^\\d.*")? "_" + name: name;
     }
 
-    private static String sanetizeNameOnlyUnderscore(String name) {
-        return "_".equals(name)? "_u": name;
-    }
-
     // camelize (lower first character) the variable name
     // pet_id => petId
-    private String sanetizeNameCamelCaseDollarSign(String name) {
+    private String sanitizeNameCamelCaseDollarSign(String name) {
         if (camelCaseDollarSign) {
             return camelize(name, LOWERCASE_FIRST_CHAR);
         } else {
             return camelize(name, LOWERCASE_FIRST_LETTER);
         }
     }
+
+    private String sanitizeNameStartCamelCaseDollarSign(String name) {
+        if (name.matches("^\\$[a-zA-Z].*")) {
+            // var starts with a dollar sign and a letter
+            // we can only camelize the 2 first characters
+            // otherwise the underscores are removed
+            return sanitizeNameCamelCaseDollarSign(name.substring(0, 2)) + StringUtils.substring(name, 2);
+        }
+        return name;
+    }
+
+    private String sanitizeNameCamelCaseForNonUnderscore(String name) {
+        if (name.matches("^[^_]+$")) {
+            return sanitizeNameCamelCaseDollarSign(name);
+        }
+        return name;
+    }
+
 
     private String sanetizeNameSpecialCharacters(String name) {
         // If name contains special chars -> replace them.
@@ -932,12 +944,18 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             return nameMapping.get(name);
         }
 
+        if ("_".equals(name)) {
+            // return immediately to avoid additional conversion
+            return "u";
+        }
+
         String var = name;
 
-        var = sanitizeNameNonwordDashDollar(var);
-        var = sanetizeNamePropertyClass(var);
-        var = sanetizeNameOnlyUnderscore(var);
+
         var = sanetizeNameStartingWithDigits(var);
+        var = sanitizeNameNonwordDashDollar(var);
+        var = sanetizeVarNamePropertyClass(var);
+
 
         // if it's all upper case, do nothing
         if (var.matches("^[A-Z0-9_]*$")) {
@@ -949,7 +967,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         }
 
         var = sanetizeNameSpecialCharacters(var);
-        var = sanetizeNameCamelCaseDollarSign(var);
+        var = sanitizeNameCamelCaseDollarSign(var);
         var = sanetizeNameReservedWord(var);
 
         return var;
@@ -2023,40 +2041,46 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
 
         switch (enumPropertyNaming) {
             case original:
-                var = saniziteVarNameNonJavaIdentifier(var);
+                var = sanitizeVarNameNonJavaIdentifier(var);
                 // NOTE: This is provided as a last-case allowance, but will still result in reserved words being escaped.
                 break;
             case camelCase:
-                var = saniziteVarNameNonJavaIdentifier(var);
-                var = sanetizeNameCamelCaseDollarSign(var);
+                var = sanitizeVarNameNonJavaIdentifier(var);
+                var = sanitizeNameCamelCaseForNonUnderscore(var);
+                var = sanitizeNameStartCamelCaseDollarSign(var);
                 break;
             case PascalCase:
-                var = saniziteVarNameNonJavaIdentifier(var);
-                var = StringUtils.capitalize(sanetizeNameCamelCaseDollarSign(var));
+                var = sanitizeVarNameNonJavaIdentifier(var);
+                // if it's all upper case, do nothing
+                var = sanitizeNameCamelCaseForNonUnderscore(var);
+                var = StringUtils.capitalize(var);
                 break;
             case snake_case:
-                var = saniziteVarNameNonJavaIdentifier(var);
-                // NOTE: hyphens are already replaced by underscores.
+                var = sanitizeVarNameNonJavaIdentifier(var);
+                var = sanitizeNameStartCamelCaseDollarSign(var);
                 break;
             case UPPERCASE:
                 // This is the backward compatible behaviour
 
-                var = saniziteVarNameAllNonWordCharacters(var);
-                var = underscore(var).toUpperCase(Locale.ROOT);
-               // Note; don't know why we need this. Keep it for backward compatibility only in the default enumPropertyNaming
-               var = sanetizeNamePropertyClass(var);
+                var = sanitizeVarNameAllNonWordCharacters(var);
+                var = underscore(var);
+                var = var.toUpperCase(Locale.ROOT);
+                // Note; don't know why we need this. Keep it for backward compatibility only in the default enumPropertyNaming
+                //var = sanetizeVarNamePropertyClass(var);
+                if ("_".equals(var)) {
+                    // backward compatibility. it would make sense to return "UNDERSCORE"
+                    return "u";
+                }
                break;
         }
 
         /*
             fix uncompilable code:
-            - underscore
             - name starting with a digit
             - reserved words
          */
 
         var = sanetizeNameStartingWithDigits(var);
-        var = sanetizeNameOnlyUnderscore(var);
         var = sanetizeNameReservedWord(var);
         return var;
     }

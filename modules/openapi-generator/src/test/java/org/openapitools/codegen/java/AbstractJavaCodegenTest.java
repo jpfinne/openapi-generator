@@ -103,6 +103,20 @@ public class AbstractJavaCodegenTest {
         codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.original);
         Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "enum_value");
         Assert.assertEquals(codegen.toEnumVarName("enumValue", "String"), "enumValue");
+        Assert.assertEquals(codegen.toEnumVarName("enum**Value", "String"), "enum_Value");
+        Assert.assertEquals(codegen.toEnumVarName("==", "String"), "__");
+        Assert.assertEquals(codegen.toEnumVarName("_,.", "String"), "__");
+        Assert.assertEquals(codegen.toEnumVarName("_", "String"), "UNDERSCORE");
+        Assert.assertEquals(codegen.toEnumVarName("___", "String"), "___");
+        Assert.assertEquals(codegen.toEnumVarName("1a", "String"), "_1a");
+        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$name");
+        Assert.assertEquals(codegen.toEnumVarName("nam$$e", "String"), "nam$$e");
+        Assert.assertEquals(codegen.toEnumVarName("user-name", "String"), "user_name");
+        Assert.assertEquals(codegen.toEnumVarName("user_name", "String"), "user_name");
+        codegen.setCamelCaseDollarSign(false);
+        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$name");
+        Assert.assertEquals(codegen.toEnumVarName("$NamE", "String"), "$NamE");
+        codegen.setCamelCaseDollarSign(true);
         Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$name");
     }
 
@@ -112,15 +126,31 @@ public class AbstractJavaCodegenTest {
         codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.snake_case);
         Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "enum_value");
         Assert.assertEquals(codegen.toEnumVarName("enumValue", "String"), "enumValue");
-        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "_name");
+        Assert.assertEquals(codegen.toEnumVarName("enum**Value", "String"), "enum_Value");
+        Assert.assertEquals(codegen.toEnumVarName("==", "String"), "__");
+        Assert.assertEquals(codegen.toEnumVarName("___", "String"), "___");
+        Assert.assertEquals(codegen.toEnumVarName("1a", "String"), "_1a");
+        codegen.setCamelCaseDollarSign(false);
+        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$name");
+        Assert.assertEquals(codegen.toEnumVarName("$NamE", "String"), "$namE");
+        codegen.setCamelCaseDollarSign(true);
+        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$Name");
     }
 
     @Test
     public void toEnumVarName_PascalCase() {
         codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.PascalCase);
-        Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "EnumValue");
         Assert.assertEquals(codegen.toEnumVarName("enumValue", "String"), "EnumValue");
+        Assert.assertEquals(codegen.toEnumVarName("1a", "String"), "_1a");
+        Assert.assertEquals(codegen.toEnumVarName("==", "String"), "__");
+        Assert.assertEquals(codegen.toEnumVarName("___", "String"), "___");
+        Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "EnumValue");
+        codegen.setCamelCaseDollarSign(false);
         Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$name");
+        Assert.assertEquals(codegen.toEnumVarName("$NamE", "String"), "$namE");
+        codegen.setCamelCaseDollarSign(true);
+        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$Name");
+        Assert.assertEquals(codegen.toEnumVarName("$NamE", "String"), "$NamE");
     }
 
     @Test
@@ -128,7 +158,14 @@ public class AbstractJavaCodegenTest {
         codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.camelCase);
         Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "enumValue");
         Assert.assertEquals(codegen.toEnumVarName("enumValue", "String"), "enumValue");
+        Assert.assertEquals(codegen.toEnumVarName("ABcD", "String"), "aBcD");
+        Assert.assertEquals(codegen.toEnumVarName("==", "String"), "__");
+        Assert.assertEquals(codegen.toEnumVarName("___", "String"), "___");
+        Assert.assertEquals(codegen.toEnumVarName("1a", "String"), "_1a");
+        codegen.setCamelCaseDollarSign(false);
         Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$name");
+        codegen.setCamelCaseDollarSign(true);
+        Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "$Name");
     }
 
     @Test
@@ -136,7 +173,12 @@ public class AbstractJavaCodegenTest {
         codegen.setEnumPropertyNaming(CodegenConstants.ENUM_PROPERTY_NAMING_TYPE.UPPERCASE);
         Assert.assertEquals(codegen.toEnumVarName("enum-value", "String"), "ENUM_VALUE");
         Assert.assertEquals(codegen.toEnumVarName("enumValue", "String"), "ENUM_VALUE");
+        Assert.assertEquals(codegen.toEnumVarName("___", "String"), "___");
+        Assert.assertEquals(codegen.toEnumVarName("1a", "String"), "_1A");
         Assert.assertEquals(codegen.toEnumVarName("$name", "String"), "_NAME");
+        Assert.assertEquals(codegen.toEnumVarName("nam$$e", "String"), "NAM_E");
+        Assert.assertEquals(codegen.toEnumVarName("user-name", "String"), "USER_NAME");
+        Assert.assertEquals(codegen.toEnumVarName("user_name", "String"), "USER_NAME");
     }
 
     @Test
@@ -188,6 +230,7 @@ public class AbstractJavaCodegenTest {
         Assert.assertEquals(codegen.toVarName("1A"), "_1A");
         Assert.assertEquals(codegen.toVarName("1AAAA"), "_1AAAA");
         Assert.assertEquals(codegen.toVarName("1AAaa"), "_1aAaa");
+        Assert.assertEquals(codegen.toVarName("__"), "__");
     }
 
     @Test
