@@ -755,9 +755,11 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
             }
         }
 
-        if (isGenerateConstructorWithAllArgs()) {
-            // conditionally force the generation of all args constructor.
-            for (CodegenModel cm : allModels.values()) {
+        boolean generateRequiredVarConstructor = false;
+
+        for (CodegenModel cm : allModels.values()) {
+            if (isGenerateConstructorWithAllArgs()) {
+                // conditionally force the generation of all args constructor.
                 if (isConstructorWithAllArgsAllowed(cm)) {
                     cm.vendorExtensions.put("x-java-all-args-constructor", true);
                     List<Object> constructorArgs = new ArrayList<>();
@@ -768,12 +770,42 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
                         once(LOGGER).warn("Unexpected allVars for {} expecting:{} vars. actual:{} vars", cm.name, cm.vars.size() + cm.parentVars.size(), cm.allVars.size());
                     }
                     constructorArgs.addAll(cm.vars);
-                    constructorArgs.addAll(cm.parentVars);
+                    // use property from allVars when available, otherwise thake the parent property
+                    for (CodegenProperty parentProperty : cm.parentVars) {
+                        Optional<CodegenProperty> op = cm.allVars.stream().filter(v -> v.baseName.equals(parentProperty.baseName)).findFirst();
+                        if (op.isPresent()) {
+                            constructorArgs.add(op.get());
+                        } else {
+                            constructorArgs.add(parentProperty);
+                        }
+                    }
+
+                    if (constructorArgs.size() > cm.requiredVars.size() && cm.hasRequired) {
+                        cm.vendorExtensions.put("x-java-required-args-constructor", true);
+                        generateRequiredVarConstructor = true;
+                    }
+                } else {
+                    if (cm.hasRequired) {
+                        cm.vendorExtensions.put("x-java-required-args-constructor", true);
+                        generateRequiredVarConstructor = true;
+                    }
+                }
+            } else {
+                if (cm.hasRequired) {
+                    generateRequiredVarConstructor = true;
+                    cm.vendorExtensions.put("x-java-required-args-constructor", true);
                 }
             }
         }
 
+        if (generateRequiredVarConstructor) {
+            processGenerateRequiredVarConstructor(allModels);
+        }
         return objs;
+    }
+
+    protected void processGenerateRequiredVarConstructor(Map<String, CodegenModel> allModels) {
+        // do nothing here
     }
 
     private List<CodegenModel> getParentModelList(CodegenModel codegenModel) {
@@ -794,8 +826,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
      */
     protected boolean isConstructorWithAllArgsAllowed(CodegenModel codegenModel) {
         // implementation detail: allVars is not reliable if openapiNormalizer.REFACTOR_ALLOF_WITH_PROPERTIES_ONLY is disabled
-        return (this.generateConstructorWithAllArgs &&
-                (!codegenModel.vars.isEmpty() || codegenModel.parentVars.isEmpty()));
+        return (this.generateConstructorWithAllArgs && (!codegenModel.vars.isEmpty() || !codegenModel.parentVars.isEmpty()));
     }
 
     private void sanitizeConfig() {

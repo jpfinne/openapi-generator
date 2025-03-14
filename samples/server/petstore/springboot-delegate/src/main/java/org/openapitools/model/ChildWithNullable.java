@@ -40,7 +40,7 @@ public class ChildWithNullable extends ParentWithNullable {
   /**
    * Constructor with all args parameters
    */
-  public ChildWithNullable(@Nullable String otherProperty, @Nullable TypeEnum type, String nullableProperty) {
+  public ChildWithNullable(@Nullable String otherProperty, TypeEnum type, String nullableProperty) {
       super(type, nullableProperty);
       this.otherProperty = otherProperty;
   }

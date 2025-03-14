@@ -44,8 +44,7 @@ public class Bar extends Entity implements BarRefOrValue {
    * Constructor with only required parameters
    */
   public Bar(String id, String atType) {
-    super(atType);
-    this.id = id;
+    super(id, atType);
   }
 
   public Bar id(String id) {

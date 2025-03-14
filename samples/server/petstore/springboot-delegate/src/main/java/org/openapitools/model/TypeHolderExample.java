@@ -45,15 +45,15 @@ public class TypeHolderExample {
   }
 
   /**
-   * Constructor with only required parameters and all parameters
+   * Constructor with all args parameters
    */
   public TypeHolderExample(String stringItem, BigDecimal numberItem, Float floatItem, Integer integerItem, Boolean boolItem, List<Integer> arrayItem) {
-    this.stringItem = stringItem;
-    this.numberItem = numberItem;
-    this.floatItem = floatItem;
-    this.integerItem = integerItem;
-    this.boolItem = boolItem;
-    this.arrayItem = arrayItem;
+      this.stringItem = stringItem;
+      this.numberItem = numberItem;
+      this.floatItem = floatItem;
+      this.integerItem = integerItem;
+      this.boolItem = boolItem;
+      this.arrayItem = arrayItem;
   }
 
   public TypeHolderExample stringItem(String stringItem) {

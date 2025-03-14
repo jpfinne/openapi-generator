@@ -107,27 +107,28 @@ public {{>sealed}}class {{classname}}{{#parent}} extends {{{parent}}}{{/parent}}
   {{^lombok.Data}}
   {{^lombok.RequiredArgsConstructor}}
   {{#generatedConstructorWithRequiredArgs}}
-  {{#hasRequired}}
+  {{#vendorExtensions.x-java-required-args-constructor}}
 
   /**
    * Constructor with only required parameters{{#generateConstructorWithAllArgs}}{{^vendorExtensions.x-java-all-args-constructor}} and all parameters{{/vendorExtensions.x-java-all-args-constructor}}{{/generateConstructorWithAllArgs}}
    */
   public {{classname}}({{#requiredVars}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/requiredVars}}) {
-    {{#parent}}
-    super({{#parentRequiredVars}}{{name}}{{^-last}}, {{/-last}}{{/parentRequiredVars}});
-    {{/parent}}
-    {{#vars}}
-    {{#required}}
-    {{#openApiNullable}}
-    this.{{name}} = {{#isNullable}}JsonNullable.of({{/isNullable}}{{#useOptional}}{{^required}}{{^isNullable}}{{^isContainer}}Optional.ofNullable({{/isContainer}}{{/isNullable}}{{/required}}{{/useOptional}}{{name}}{{#isNullable}}){{/isNullable}}{{#useOptional}}{{^required}}{{^isNullable}}{{^isContainer}}){{/isContainer}}{{/isNullable}}{{/required}}{{/useOptional}};
-    {{/openApiNullable}}
-    {{^openApiNullable}}
+  {{#parent}}
+    super({{#vendorExtensions.x-java-required-args-constructor-super}}{{name}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-java-required-args-constructor-super}});
+  {{/parent}}
+  {{#vendorExtensions.x-java-required-args-constructor-parentVars}}
+    super.{{name}}({{name}});
+  {{/vendorExtensions.x-java-required-args-constructor-parentVars}}
+  {{#vendorExtensions.x-java-required-args-constructor-vars}}
+  {{#openApiNullable}}
+    this.{{name}} = {{#isNullable}}JsonNullable.of({{/isNullable}}{{#useOptional}}{{^required}}{{^isNullable}}{{^isContainer}}Optional.of{{#optionalAcceptNullable}}Nullable{{/optionalAcceptNullable}}({{/isContainer}}{{/isNullable}}{{/required}}{{/useOptional}}{{name}}{{#isNullable}}){{/isNullable}}{{#useOptional}}{{^required}}{{^isNullable}}{{^isContainer}}){{/isContainer}}{{/isNullable}}{{/required}}{{/useOptional}};
+  {{/openApiNullable}}
+  {{^openApiNullable}}
     this.{{name}} = {{name}};
-    {{/openApiNullable}}
-    {{/required}}
-    {{/vars}}
+  {{/openApiNullable}}
+  {{/vendorExtensions.x-java-required-args-constructor-vars}}
   }
-  {{/hasRequired}}
+  {{/vendorExtensions.x-java-required-args-constructor}}
   {{/generatedConstructorWithRequiredArgs}}
   {{/lombok.RequiredArgsConstructor}}
   {{#vendorExtensions.x-java-all-args-constructor}}

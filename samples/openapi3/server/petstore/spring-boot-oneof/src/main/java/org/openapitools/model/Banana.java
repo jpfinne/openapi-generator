@@ -39,7 +39,6 @@ public class Banana implements Fruit {
    */
   public Banana(Integer length) {
     this.length = length;
-    this.fruitType = fruitType;
   }
 
   public Banana length(Integer length) {

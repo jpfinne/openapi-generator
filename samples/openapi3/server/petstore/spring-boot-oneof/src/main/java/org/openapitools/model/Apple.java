@@ -39,7 +39,6 @@ public class Apple implements Fruit {
    */
   public Apple(Integer seeds) {
     this.seeds = seeds;
-    this.fruitType = fruitType;
   }
 
   public Apple seeds(Integer seeds) {

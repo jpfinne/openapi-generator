@@ -4778,8 +4778,7 @@ public class SpringCodegenTest {
         // test required constructor
         JavaFileAssert.assertThat(files.get("Page.java"))
                 .assertConstructor("Integer")
-                .toFileAssert()
-                .fileContains("Constructor with only required parameters and all parameters");
+                .toFileAssert();
 
         JavaFileAssert.assertThat(files.get("PageOfPets.java"))
                 .assertConstructor("Integer", "List<Pet>")
@@ -5383,4 +5382,43 @@ public class SpringCodegenTest {
 
         JavaFileAssert.assertThat(files.get("Type.java")).fileContains("Type implements java.io.Serializable {");
     }
+
+    @Test
+    public void testAllArgsConstructor_20855_withRequiredAllArgs() throws IOException {
+        final Map<String, File> output = generateFromContract("src/test/resources/3_0/spring/issue_20855.yaml", SPRING_BOOT,
+                Map.of(GENERATE_CONSTRUCTOR_WITH_ALL_ARGS, Boolean.TRUE,
+                        GENERATE_CONSTRUCTOR_WITH_REQUIRED_ARGS, Boolean.FALSE
+                ));
+        JavaFileAssert.assertThat(output.get("AnimalIdRequired.java"))
+                .fileContains("public AnimalIdRequired(String id, String name, String breed) {",
+                        "super(id, name, breed);")
+                .fileDoesNotContain("Constructor with only required parameters");
+    }
+
+    @Test
+    public void testAllArgsConstructor_20855_withRequiredAndAllArgs() throws IOException {
+        final Map<String, File> output = generateFromContract("src/test/resources/3_0/spring/issue_20855.yaml", SPRING_BOOT,
+                Map.of(GENERATE_CONSTRUCTOR_WITH_ALL_ARGS, Boolean.TRUE,
+                        GENERATE_CONSTRUCTOR_WITH_REQUIRED_ARGS, Boolean.TRUE
+                ));
+        JavaFileAssert.assertThat(output.get("AnimalIdRequired.java"))
+                .fileContains("public AnimalIdRequired(String id, String name, String breed) {",
+                        "super(id, name, breed);")
+                .fileDoesNotContain("Constructor with only required parameters");
+    }
+
+    @Test
+    public void testAllArgsConstructor_20855_withRequiredArgs() throws IOException {
+        final Map<String, File> output = generateFromContract("src/test/resources/3_0/spring/issue_20855.yaml", SPRING_BOOT,
+                Map.of(GENERATE_CONSTRUCTOR_WITH_ALL_ARGS, Boolean.FALSE,
+                        GENERATE_CONSTRUCTOR_WITH_REQUIRED_ARGS, Boolean.TRUE
+                ));
+        JavaFileAssert.assertThat(output.get("AnimalIdRequired.java"))
+                .fileContains("public AnimalIdRequired(String id, String name, String breed) {",
+                        "super(name, breed);",
+                        "super.id(id);")
+                .fileContains("Constructor with only required parameters");
+    }
+
+
 }

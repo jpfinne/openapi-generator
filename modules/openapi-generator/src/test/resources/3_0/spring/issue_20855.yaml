@@ -1,0 +1,57 @@
+openapi: 3.0.1
+info:
+  title: testAllArgConstructors
+  version: 1.0
+components:
+  schemas:
+    Animal:
+      type: object
+      x-parent: true
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        breed:
+          type: string
+      required:
+        - name
+        - breed
+    AnimalIdRequired:
+      allOf:
+        - $ref: "#/components/schemas/Animal"
+      required:
+        - id
+    AnimalExIdRequired:
+      allOf:
+        - $ref: "#/components/schemas/Animal"
+        - properties:
+            color:
+              type: string
+      required:
+        - id
+    AnimalExIdAndColorRequired:
+      allOf:
+        - $ref: "#/components/schemas/Animal"
+        - properties:
+            color:
+              type: string
+      required:
+        - id
+        - color
+    AnimalExColor:
+      allOf:
+        - $ref: "#/components/schemas/Animal"
+        - properties:
+            color:
+              type: string
+      required:
+        - color
+    AnimalExColorRequired:
+      allOf:
+        - $ref: "#/components/schemas/Animal"
+        - properties:
+            color:
+              type: string
+      required:
+        - color
