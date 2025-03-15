@@ -108,8 +108,6 @@ components:
     Foo:
       type: object
       properties:
-        dog:
-          $ref: "#/components/schemas/Dog"
         fooPropA:
           type: string
         fooPropB:
