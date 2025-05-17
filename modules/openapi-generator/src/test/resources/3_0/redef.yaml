@@ -1,0 +1,169 @@
+openapi: 3.0.1
+info:
+  title: redef
+  version: 1.0.0
+  description: redef
+paths:
+  /test:
+    get:
+      responses:
+        200:
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Party'
+  /natural:
+    get:
+      responses:
+        200:
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NaturalPerson'
+  /legalPerson:
+    get:
+      responses:
+        200:
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NaturalPerson'
+components:
+  schemas:
+    ModelIdentifier:
+      title: Identifier for BaseModel
+      description: Uniquely identifies each model
+      type: string
+      format: uuid
+    ObjectType:
+      title: Identifies the type of the object
+      description: Identifies the type of the object your are holding.
+      type: string
+    ModelMetaData:
+      title: ModelMetaData
+      type: object
+      description: Metadata about any resource being retrieved from the server
+      properties:
+        createdAt:
+          description: Date and time of when the resource was initially created.  Immutable during for the entire resource lifecycle
+          type: string
+          format: date-time
+          readOnly: true
+        modifiedAt:
+          description: Date and time of when the resource was last modified.
+          type: string
+          format: date-time
+          readOnly: true
+
+    BaseModel:
+      title: BaseModel
+      type: object
+      required:
+        - id
+        - object
+        - meta
+      properties:
+        id:
+          $ref: '#/components/schemas/ModelIdentifier'
+        object:
+          $ref: '#/components/schemas/ObjectType'
+        meta:
+          $ref: '#/components/schemas/ModelMetaData'
+    PartyTypeEnum:
+      title: PartyTypeEnum
+      description: |
+        The type of a party
+      type: string
+      enum:
+        - naturalPerson
+        - legalPerson
+    Party:
+      title: Party
+      type: object
+      required:
+        - object
+#      allOf:
+#        - type: object
+#          properties:
+#            object:
+#              $ref: '#/components/schemas/PartyTypeEnum'
+#        - oneOf:
+#            - $ref: '#/components/schemas/NaturalPerson'
+#            - $ref: '#/components/schemas/LegalPerson'
+      discriminator:
+        propertyName: object
+        mapping:
+          naturalPerson: '#/components/schemas/NaturalPerson'
+          legalPerson:  '#/components/schemas/LegalPerson'
+    LegalPerson:
+      allOf:
+        - $ref: '#/components/schemas/BaseModel'
+
+        - type: object
+          properties:
+            bce:
+              type: string
+    BeNRNIdentificationNumber:
+      title: BeNRNIdentificationNumber
+      description: |
+        Identifier for a natural person with the Belgian National Register
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - BeNRN
+        number:
+          type: string
+          pattern: ^[0-9]{11}$
+    NaturalPerson:
+      title: NaturalPerson
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/BaseModel'
+#        - $ref: '#/components/schemas/Party'
+        - type: object
+          properties:
+            nrn:
+              $ref: '#/components/schemas/BeNRNIdentificationNumber'
+            lastNames:
+              type: array
+              minItems: 1
+              items:
+                type: string
+            firstNames:
+              type: array
+              minItems: 0
+              items:
+                type: string
+
+    SomeTypeEnum:
+      title: SomeTypeEnum
+      type: string
+      enum:
+        - TypeONE
+        - TypeTWO
+        - TypeTHREE
+    SomeBaseModel:
+      title: SomeBaseModel
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/SomeTypeEnum'
+    SomeClassExtendingBaseModel:
+      title: SomeClassExtendingBaseModel
+      allOf:
+        - $ref: '#/components/schemas/SomeBaseModel'
+        - type: object
+          properties:
+            type:
+               type: string
+               enum:
+                  - TypeONE
+                  - TypeTWO
