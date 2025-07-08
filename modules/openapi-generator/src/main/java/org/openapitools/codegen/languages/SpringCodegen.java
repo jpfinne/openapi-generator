@@ -66,6 +66,7 @@ public class SpringCodegen extends AbstractJavaCodegen
     public static final String INTERFACE_ONLY = "interfaceOnly";
     public static final String USE_FEIGN_CLIENT_URL = "useFeignClientUrl";
     public static final String USE_FEIGN_CLIENT = "useFeignClient";
+    public static final String USE_FEIGN_CLIENT_CONTEXT_ID = "useFeignClientContextId";
     public static final String DELEGATE_PATTERN = "delegatePattern";
     public static final String SINGLE_CONTENT_TYPES = "singleContentTypes";
     public static final String VIRTUAL_SERVICE = "virtualService";
@@ -89,6 +90,7 @@ public class SpringCodegen extends AbstractJavaCodegen
     public static final String RETURN_SUCCESS_CODE = "returnSuccessCode";
     public static final String UNHANDLED_EXCEPTION_HANDLING = "unhandledException";
     public static final String USE_RESPONSE_ENTITY = "useResponseEntity";
+    public static final String GENERATE_GENERIC_RESPONSE_ENTITY = "generateGenericResponseEntity";
     public static final String USE_ENUM_CASE_INSENSITIVE = "useEnumCaseInsensitive";
     public static final String USE_SPRING_BOOT3 = "useSpringBoot3";
     public static final String REQUEST_MAPPING_OPTION = "requestMappingMode";
@@ -96,7 +98,9 @@ public class SpringCodegen extends AbstractJavaCodegen
     public static final String USE_REQUEST_MAPPING_ON_INTERFACE = "useRequestMappingOnInterface";
     public static final String USE_SEALED = "useSealed";
     public static final String OPTIONAL_ACCEPT_NULLABLE = "optionalAcceptNullable";
+    public static final String USE_SPRING_BUILT_IN_VALIDATION = "useSpringBuiltInValidation";
     public static final String USE_DEDUCTION_FOR_ONE_OF_INTERFACES = "oneOfInterfacesDeduction";
+
     @Getter
     public enum RequestMappingMode {
         api_interface("Generate the @RequestMapping annotation on the generated Api Interface."),
@@ -123,6 +127,7 @@ public class SpringCodegen extends AbstractJavaCodegen
 
     @Setter protected boolean interfaceOnly = false;
     @Setter protected boolean useFeignClientUrl = true;
+    @Setter protected boolean useFeignClientContextId = true;
     @Setter protected boolean delegatePattern = false;
     protected boolean delegateMethod = false;
     @Setter protected boolean singleContentTypes = false;
@@ -144,6 +149,7 @@ public class SpringCodegen extends AbstractJavaCodegen
     @Setter protected boolean useSpringController = false;
     protected boolean useSwaggerUI = true;
     @Setter protected boolean useResponseEntity = true;
+    @Setter protected boolean generateGenericResponseEntity = false;
     @Setter protected boolean useEnumCaseInsensitive = false;
     @Getter @Setter
     protected boolean useSpringBoot3 = false;
@@ -152,6 +158,8 @@ public class SpringCodegen extends AbstractJavaCodegen
     protected RequestMappingMode requestMappingMode = RequestMappingMode.controller;
     @Getter @Setter
     protected boolean optionalAcceptNullable = true;
+    @Getter @Setter
+    protected boolean useSpringBuiltInValidation = false;
     @Getter @Setter
     protected boolean useDeductionForOneOfInterfaces = false;
 
@@ -199,6 +207,8 @@ public class SpringCodegen extends AbstractJavaCodegen
                 "Whether to generate only API interface stubs without the server files.", interfaceOnly));
         cliOptions.add(CliOption.newBoolean(USE_FEIGN_CLIENT_URL,
                 "Whether to generate Feign client with url parameter.", useFeignClientUrl));
+        cliOptions.add(CliOption.newBoolean(USE_FEIGN_CLIENT_CONTEXT_ID,
+                "Whether to generate Feign client with contextId parameter.", useFeignClientContextId));
         cliOptions.add(CliOption.newBoolean(DELEGATE_PATTERN,
                 "Whether to generate the server files using the delegate pattern", delegatePattern));
         cliOptions.add(CliOption.newBoolean(SINGLE_CONTENT_TYPES,
@@ -216,6 +226,9 @@ public class SpringCodegen extends AbstractJavaCodegen
                 CliOption.newBoolean(USE_TAGS, "use tags for creating interface and controller classnames", useTags));
         cliOptions
                 .add(CliOption.newBoolean(USE_BEANVALIDATION, "Use BeanValidation API annotations", useBeanValidation));
+        cliOptions.add(CliOption.newBoolean(USE_SPRING_BUILT_IN_VALIDATION,
+                "Disable `@Validated` at the class level when using built-in validation.",
+                useSpringBuiltInValidation));
         cliOptions.add(CliOption.newBoolean(PERFORM_BEANVALIDATION,
                 "Use Bean Validation Impl. to perform BeanValidation", performBeanValidation));
         cliOptions.add(CliOption.newBoolean(USE_SEALED,
@@ -248,6 +261,10 @@ public class SpringCodegen extends AbstractJavaCodegen
                 "Use the `ResponseEntity` type to wrap return values of generated API methods. "
                         + "If disabled, method are annotated using a `@ResponseStatus` annotation, which has the status of the first response declared in the Api definition",
                 useResponseEntity));
+        cliOptions.add(CliOption.newBoolean(GENERATE_GENERIC_RESPONSE_ENTITY,
+                "Use a generic type for the `ResponseEntity` wrapping return values of generated API methods. "
+                        + "If enabled, method are generated with return type ResponseEntity<?>",
+                generateGenericResponseEntity));
         cliOptions.add(CliOption.newBoolean(USE_ENUM_CASE_INSENSITIVE,
                 "Use `equalsIgnoreCase` when String for enum comparison",
                 useEnumCaseInsensitive));
@@ -395,6 +412,7 @@ public class SpringCodegen extends AbstractJavaCodegen
         convertPropertyToBooleanAndWriteBack(VIRTUAL_SERVICE, this::setVirtualService);
         convertPropertyToBooleanAndWriteBack(INTERFACE_ONLY, this::setInterfaceOnly);
         convertPropertyToBooleanAndWriteBack(USE_FEIGN_CLIENT_URL, this::setUseFeignClientUrl);
+        convertPropertyToBooleanAndWriteBack(USE_FEIGN_CLIENT_CONTEXT_ID, this::setUseFeignClientContextId);
         convertPropertyToBooleanAndWriteBack(DELEGATE_PATTERN, this::setDelegatePattern);
         convertPropertyToBooleanAndWriteBack(SINGLE_CONTENT_TYPES, this::setSingleContentTypes);
         convertPropertyToBooleanAndWriteBack(SKIP_DEFAULT_INTERFACE, this::setSkipDefaultInterface);
@@ -425,7 +443,13 @@ public class SpringCodegen extends AbstractJavaCodegen
 
         convertPropertyToBooleanAndWriteBack(UNHANDLED_EXCEPTION_HANDLING, this::setUnhandledException);
         convertPropertyToBooleanAndWriteBack(USE_RESPONSE_ENTITY, this::setUseResponseEntity);
+        convertPropertyToBooleanAndWriteBack(GENERATE_GENERIC_RESPONSE_ENTITY, this::setGenerateGenericResponseEntity);
+        if (!useResponseEntity) {
+            this.setGenerateGenericResponseEntity(false);
+            this.additionalProperties.put(GENERATE_GENERIC_RESPONSE_ENTITY, false);
+        }
         convertPropertyToBooleanAndWriteBack(OPTIONAL_ACCEPT_NULLABLE, this::setOptionalAcceptNullable);
+        convertPropertyToBooleanAndWriteBack(USE_SPRING_BUILT_IN_VALIDATION, this::setUseSpringBuiltInValidation);
 
         additionalProperties.put("springHttpStatus", new SpringHttpStatusLambda());
 
@@ -676,7 +700,7 @@ public class SpringCodegen extends AbstractJavaCodegen
     public void preprocessOpenAPI(OpenAPI openAPI) {
         super.preprocessOpenAPI(openAPI);
 
-        if (!interfaceOnly && SPRING_BOOT.equals(library) && containsEnums()) {
+        if (SPRING_BOOT.equals(library) && containsEnums()) {
             supportingFiles.add(new SupportingFile("converter.mustache",
                     (sourceFolder + File.separator + configPackage).replace(".", java.io.File.separator), "EnumConverterConfiguration.java"));
         }
@@ -987,6 +1011,8 @@ public class SpringCodegen extends AbstractJavaCodegen
      * Add dynamic imports based on the parameters and vendor extensions of an operation.
      * The imports are expanded by the mustache {{import}} tag available to model and api
      * templates.
+     *
+     * #8315 Also handles removing 'size', 'page' and 'sort' query parameters if using 'x-spring-paginated'.
      */
     @Override
     public CodegenOperation fromOperation(String path, String httpMethod, Operation operation, List<Server> servers) {
@@ -1014,6 +1040,15 @@ public class SpringCodegen extends AbstractJavaCodegen
             if (DocumentationProvider.SPRINGDOC.equals(getDocumentationProvider())) {
                 codegenOperation.imports.add("ParameterObject");
             }
+
+            // #8315 Spring Data Web default query params recognized by Pageable
+            List<String> defaultPageableQueryParams = new ArrayList<>(
+                Arrays.asList("page", "size", "sort")
+            );
+
+            // #8315 Remove matching Spring Data Web default query params if 'x-spring-paginated' with Pageable is used
+            codegenOperation.queryParams.removeIf(param -> defaultPageableQueryParams.contains(param.baseName));
+            codegenOperation.allParams.removeIf(param -> param.isQueryParam && defaultPageableQueryParams.contains(param.baseName));
         }
         if (codegenOperation.vendorExtensions.containsKey("x-spring-provide-args") && !provideArgsClassSet.isEmpty()) {
             codegenOperation.imports.addAll(provideArgsClassSet);
