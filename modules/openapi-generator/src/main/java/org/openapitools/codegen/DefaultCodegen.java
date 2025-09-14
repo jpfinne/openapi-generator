@@ -341,6 +341,7 @@ public class DefaultCodegen implements CodegenConfig {
     @Setter @Getter protected boolean defaultToEmptyContainer;
 
     final List EMPTY_LIST = new ArrayList();
+    protected boolean preserveAllOfOrder = true;
 
     @Override
     public boolean getAddSuffixToDuplicateOperationNicknames() {
@@ -2724,6 +2725,13 @@ public class DefaultCodegen implements CodegenConfig {
                 interfaceSchema = unaliasSchema(interfaceSchema);
 
                 if (StringUtils.isBlank(interfaceSchema.get$ref())) {
+                    if (preserveAllOfOrder) {
+                        // component is the child schema
+                        addProperties(properties, required, interfaceSchema, new HashSet<>());
+
+                        // includes child's properties (all, required) in allProperties, allRequired
+                        addProperties(allProperties, allRequired, interfaceSchema, new HashSet<>());
+                    }
                     // primitive type
                     String languageType = getTypeDeclaration(interfaceSchema);
                     CodegenProperty interfaceProperty = fromProperty(languageType, interfaceSchema, false);
@@ -2812,18 +2820,20 @@ public class DefaultCodegen implements CodegenConfig {
             }
         }
 
-        // child schema (properties owned by the schema itself)
-        for (Schema component : interfaces) {
-            if (component.get$ref() == null) {
-                if (component != null) {
-                    // component is the child schema
-                    addProperties(properties, required, component, new HashSet<>());
+        if (!preserveAllOfOrder) {
+            // child schema (properties owned by the schema itself)
+            for (Schema component : interfaces) {
+                if (component.get$ref() == null) {
+                    if (component != null) {
+                        // component is the child schema
+                        addProperties(properties, required, component, new HashSet<>());
 
-                    // includes child's properties (all, required) in allProperties, allRequired
-                    addProperties(allProperties, allRequired, component, new HashSet<>());
+                        // includes child's properties (all, required) in allProperties, allRequired
+                        addProperties(allProperties, allRequired, component, new HashSet<>());
+                    }
+                    // in 7.0.0 release, we comment out below to allow more than 1 child schemas in allOf
+                    //break; // at most one child only
                 }
-                // in 7.0.0 release, we comment out below to allow more than 1 child schemas in allOf
-                //break; // at most one child only
             }
         }
 
