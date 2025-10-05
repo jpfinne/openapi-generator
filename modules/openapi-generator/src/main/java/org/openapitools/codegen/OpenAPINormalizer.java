@@ -27,6 +27,8 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.StringUtils;
 import org.openapitools.codegen.utils.ModelUtils;
 import org.slf4j.Logger;
@@ -152,6 +154,9 @@ public class OpenAPINormalizer {
     boolean updateNumberToNullable;
     boolean updateBooleanToNullable;
 
+    // sen set (...)
+    final String SPLIT_OPERATION_PER_MEDIATYPE = "SPLIT_OPERATION_PER_MEDIATYPE";
+
     // ============= end of rules =============
 
     /**
@@ -209,6 +214,7 @@ public class OpenAPINormalizer {
         ruleNames.add(SET_CONTAINER_TO_NULLABLE);
         ruleNames.add(SET_PRIMITIVE_TYPES_TO_NULLABLE);
         ruleNames.add(SIMPLIFY_ONEOF_ANYOF_ENUM);
+        ruleNames.add(SPLIT_OPERATION_PER_MEDIATYPE);
 
         // rules that are default to true
         rules.put(SIMPLIFY_ONEOF_ANYOF, true);
@@ -341,6 +347,9 @@ public class OpenAPINormalizer {
         if (bearerAuthSecuritySchemeName != null) {
             rules.put(SET_BEARER_AUTH_FOR_NAME, true);
         }
+        if (inputRules.get(SPLIT_OPERATION_PER_MEDIATYPE) != null) {
+            rules.put(SPLIT_OPERATION_PER_MEDIATYPE, true);
+        }
     }
 
     /**
@@ -388,6 +397,10 @@ public class OpenAPINormalizer {
         if (paths == null) {
             return;
         }
+
+        boolean splitOperationPerMediaType = getRule(SPLIT_OPERATION_PER_MEDIATYPE);
+        //map of path to map of <method, PathItem>
+        Map<String, PathItem> extraPaths = new HashMap<>();
 
         for (Map.Entry<String, PathItem> pathsEntry : paths.entrySet()) {
             PathItem path = pathsEntry.getValue();
@@ -449,8 +462,15 @@ public class OpenAPINormalizer {
                 normalizeRequestBody(operation);
                 normalizeParameters(operation.getParameters());
                 normalizeResponses(operation);
+
+                if (splitOperationPerMediaType) {
+                    path.readOperationsMap().forEach((method, operation2) -> {
+                        processSplitOperationPerMediaType(method, pathsEntry.getKey(), pathsEntry.getValue(), operation2, extraPaths);
+                    });
+                }
             }
         }
+        openAPI.getPaths().putAll(extraPaths);
     }
 
     /**
@@ -459,6 +479,7 @@ public class OpenAPINormalizer {
      * @param operation Operation
      */
     protected void normalizeOperation(Operation operation) {
+
         processRemoveXInternalFromOperation(operation);
 
         processKeepOnlyFirstTagInOperation(operation);
@@ -1094,6 +1115,290 @@ public class OpenAPINormalizer {
         }
     }
 
+    Set<String> splitRequestBodyMediaTypes = Set.of("multipart/form-data");
+    Set<String> splitResponseMediaTypes = Set.of("application/octet-stream");
+
+    @Data
+    @EqualsAndHashCode
+    static class Split {
+        public static final String DEFAULT_MEDIA_TYPE = "defaultMediaType";
+        String contentType;
+        String accept;
+        String operationId;
+
+        Split(String contentType, String accept, String operationId) {
+            this.contentType = contentType;
+            this.accept = accept;
+            this.operationId = operationId;
+        }
+
+        Split(String contentType, String accept, MediaType mediaType) {
+            this.contentType = contentType;
+            this.accept = accept;
+            this.operationId = getOperationId(mediaType);
+        }
+
+//        public Split(String acceptMediaType, MediaType mediaType, RequestBody requestBody) {
+//            this.contentType = null;
+//            this.accept = acceptMediaType;
+//            this.operationId = getOperationId(mediaType, requestBody);
+//        }
+
+        static  String getOperationId(MediaType mediaType) {
+            return getOperationId(mediaType.getExtensions());
+        }
+
+        static String getOperationId(MediaType mediaType, RequestBody requestBody) {
+            String operationId = getOperationId(requestBody.getExtensions());
+            if (operationId == null) {
+                operationId = getOperationId(mediaType);
+            }
+            return operationId;
+        }
+
+        private static String getOperationId(Map<String, Object> extensions) {
+             return extensions != null? String.valueOf(extensions.get("x-operation-id")): null;
+        }
+
+        public static String getMediaType(String key, Set<String> mediaTypes) {
+            if (mediaTypes.contains(key)) {
+                return key;
+            } else {
+                return DEFAULT_MEDIA_TYPE;
+            }
+        }
+
+//        public boolean matchResponse(String operationId) {
+//            return //contentType.equals(this.accept) &&
+//                    Objects.equals(this.operationId, operationId) ;
+//        }
+
+        public boolean matchResponse(MediaType mediaType, RequestBody requestBody) {
+            return Objects.equals(operationId, getOperationId(mediaType, requestBody));
+        }
+
+        public String convertPath(String path) {
+            StringBuilder b = new StringBuilder(path);
+            b.append("/__");
+            if (contentType != DEFAULT_MEDIA_TYPE) {
+                b.append("content:");
+                b.append(contentType);
+                if (accept != DEFAULT_MEDIA_TYPE) {
+                    b.append('_');
+                }
+            }
+            if (accept != DEFAULT_MEDIA_TYPE) {
+                b.append("accept:");
+                b.append(accept);
+            }
+            b.append("__");
+            return b.toString();
+        }
+
+        public boolean needsNewRequestBody(RequestBody requestBody) {
+            return contentType != null && contentType != DEFAULT_MEDIA_TYPE && requestBody != null && requestBody.getContent() != null && requestBody.getContent().containsKey(contentType);
+        }
+    }
+
+    protected void processSplitOperationPerMediaType(PathItem.HttpMethod method, String path, PathItem pathItem, Operation operation, Map<String, PathItem> extraPaths) {
+
+        boolean isRequestRef = operation.getRequestBody().get$ref()!=null;
+        RequestBody requestBody = ModelUtils.getReferencedRequestBody(openAPI, operation.getRequestBody());
+        List<Split> splits;
+        if (operation.getResponses() != null && !operation.getResponses().isEmpty()) {
+            splits = operation.getResponses().values().stream()
+                    .map(response->ModelUtils.getReferencedApiResponse(openAPI, response))
+                    .map(ApiResponse::getContent)
+                    .filter(Objects::nonNull)
+                    .flatMap(content -> content.entrySet().stream())
+//                    .filter(entry -> splitResponseMediaTypes.contains(entry.getKey()))
+                    .map(entry -> new Split(null, Split.getMediaType(entry.getKey(), splitResponseMediaTypes), entry.getValue()))
+                    .collect(Collectors.toList());
+        } else {
+            splits = new ArrayList<>();
+        }
+        if (requestBody != null) {
+            Content content = requestBody.getContent();
+            if (content != null && content.size() > 1) {
+
+                for (String acceptMediaType : splitRequestBodyMediaTypes) {
+                    MediaType mediaType = content.get(acceptMediaType);
+                    if (mediaType != null) {
+                        Optional<Split> match = splits.stream().filter(split -> split.matchResponse(mediaType, operation.getRequestBody()))
+                                .findAny();
+                        if (match.isPresent()) {
+                            match.get().contentType = acceptMediaType;
+                        } else {
+                        }
+                    }
+                }
+
+                List<String> allAcceptMediatTypes = content.keySet().stream().map(mediaType -> Split.getMediaType(mediaType, splitRequestBodyMediaTypes)).collect(Collectors.toList());
+                String firstAccept = allAcceptMediatTypes.isEmpty()?null:allAcceptMediatTypes.get(0);
+
+                List<Split> extraSplits = new ArrayList<>();
+                for (Split split : splits) {
+                    if (split.accept == null) {
+                        split.accept = firstAccept;
+                        for (int i=1; i<allAcceptMediatTypes.size(); i++) {
+                            extraSplits.add(new Split(split.contentType, allAcceptMediatTypes.get(i), (String)null));
+                        }
+                    }
+                }
+                splits.addAll(extraSplits);
+            }
+        }
+
+        if (!splits.isEmpty()) {
+            System.out.println(method + " "  + path + ":" + splits);
+        }
+
+        for (Split split : splits) {
+
+            String newPath = split.convertPath(path);
+                // create a new path with the same operation but with split requestBody
+                PathItem newPathItem = extraPaths.computeIfAbsent(newPath,  key -> {
+                    PathItem p = clonePathItem(pathItem);
+                    p.addExtension("x-effective-path", path);
+                    return p;
+                });
+            Operation newOperation = cloneOperation(operation);
+
+
+
+            if (split.needsNewRequestBody(requestBody)) {
+                RequestBody newRequestBody = new RequestBody()
+                        .description(requestBody.getDescription())
+                        .required(requestBody.getRequired());
+//                               .responses(operation.getResponses())
+                // and cloned requestBody
+                Content content = requestBody.getContent();
+                newOperation.requestBody(newRequestBody);
+                //if (split.matchContent())
+                Content newContent = new Content();
+                MediaType mediaType = content.get(split.contentType);
+                newContent.addMediaType(split.contentType, mediaType);
+                newRequestBody.setContent(newContent);
+                newPathItem.operation(method, newOperation);
+
+                if (isRequestRef) {
+                    // references need to be inlined
+                    List<String> mediaTypesToInline = content.keySet().stream().filter(mediaTypeKey -> splitRequestBodyMediaTypes.contains(mediaTypeKey)).collect(Collectors.toList());
+                    if (mediaTypesToInline.size() > 0) {
+                        requestBody.set$ref(null);
+                        Content inlineContent = new Content();
+                        RequestBody inlineRequestBody = new RequestBody()
+                                .description(requestBody.getDescription())
+                                .required(requestBody.getRequired())
+                                .content(inlineContent);
+                        // use the inline version of the requestBody
+                        newOperation.setRequestBody(inlineRequestBody);
+                        for (String mediaTypeToInline : mediaTypesToInline) {
+                            inlineContent.addMediaType(mediaTypeToInline, cloneMediaType(content.get(mediaTypeToInline)));
+                        }
+                    }
+                } else {
+                    // remove from current request content
+                    //content.remove(split.contentType);
+                }
+            }
+
+        }
+        if (false && requestBody != null) {
+            Content content = requestBody.getContent();
+            if (content != null && content.size() > 1) {
+               for (String splitMediatype :splitRequestBodyMediaTypes) {
+                   MediaType mediaType = content.get(splitMediatype);
+                   if (mediaType != null) {
+                       // create a new path with the same operation but with split requestBody
+                       PathItem newPathItem = extraPaths.computeIfAbsent(convertPath(path, splitMediatype),  key -> {
+                           PathItem p = clonePathItem(pathItem);
+                           p.addExtension("x-effective-path", path);
+                           return p;
+                       });
+
+                       RequestBody newRequestBody = new RequestBody()
+                            .description(requestBody.getDescription())
+                            .required(requestBody.getRequired());
+                       Operation newOperation = cloneOperation(operation)
+//                               .responses(operation.getResponses())
+                               // and cloned requestBody
+                               .requestBody(newRequestBody);
+                       Content newContent = new Content();
+
+                       newContent.addMediaType(splitMediatype, mediaType);
+                       newRequestBody.setContent(newContent);
+                       newPathItem.operation(method, newOperation);
+
+                       if (isRequestRef) {
+                           // references need to be inlined
+                           List<String> mediaTypesToInline = content.keySet().stream().filter(mediaTypeKey -> !splitRequestBodyMediaTypes.contains(mediaTypeKey)).collect(Collectors.toList());
+                           if (mediaTypesToInline.size() > 0) {
+                               requestBody.set$ref(null);
+                               Content inlineContent = new Content();
+                               RequestBody inlineRequestBody = new RequestBody()
+                                    .description(requestBody.getDescription())
+                                    .required(requestBody.getRequired())
+                                    .content(inlineContent);
+                               // use the inline version of the requestBody
+                               operation.setRequestBody(inlineRequestBody);
+                               for (String mediaTypeToInline : mediaTypesToInline) {
+                                    inlineContent.addMediaType(mediaTypeToInline, cloneMediaType(content.get(mediaTypeToInline)));
+                               }
+                           }
+                       } else {
+                           // remove from current request content
+                           content.remove(splitMediatype);
+                       }
+                   }
+               }
+            }
+        }
+    }
+
+    protected String convertPath(String path, String splitMediatype) {
+        splitMediatype = splitMediatype.replace('/', '_');
+        return path +"/__" + splitMediatype + "__";
+    }
+
+    protected static PathItem clonePathItem(PathItem pathItem) {
+        return new PathItem()
+                .parameters(pathItem.getParameters())
+                .extensions(pathItem.getExtensions())
+                .description(pathItem.getDescription())
+                .summary(pathItem.getSummary())
+                .servers(pathItem.getServers());
+    }
+    protected static Operation cloneOperation(Operation operation) {
+        return new Operation()
+            .parameters(operation.getParameters())
+            .operationId(operation.getOperationId())
+            .tags(operation.getTags())
+            .summary(operation.getSummary())
+            .callbacks(operation.getCallbacks())
+            .extensions(operation.getExtensions())
+            .deprecated(operation.getDeprecated())
+            .description(operation.getDescription())
+            .externalDocs(operation.getExternalDocs())
+            .servers(operation.getServers())
+            .security(operation.getSecurity())
+            .summary(operation.getSummary())
+            .requestBody(operation.getRequestBody())
+            .responses(operation.getResponses());
+    }
+
+    protected static MediaType cloneMediaType(MediaType mediaType) {
+        boolean openapi31 = false; // TODO: adapt
+        MediaType newMediaType = new MediaType()
+                .encoding(mediaType.getEncoding())
+                .extensions(mediaType.getExtensions())
+                .examples(mediaType.getExamples())
+                .schema(ModelUtils.cloneSchema(mediaType.getSchema(), openapi31));
+        newMediaType.setExample(mediaType.getExample());
+
+        return newMediaType;
+    }
+
     /**
      * Remove/hide the x-internal in operations and model.
      *
@@ -1342,7 +1647,7 @@ public class OpenAPINormalizer {
      *
      * @param schema Schema to modify
      * @param subSchemas List of sub-schemas to check
-     * @param schemaType Type of composed schema ("oneOf" or "anyOf")
+     * @param composedType Type of composed schema ("oneOf" or "anyOf")
      * @return Simplified schema
      */
     protected Schema simplifyComposedSchemaWithEnums(Schema schema, List<Object> subSchemas, String composedType) {
