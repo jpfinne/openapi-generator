@@ -16,10 +16,15 @@
 
 package org.openapitools.codegen;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.media.*;
 import io.swagger.v3.oas.models.parameters.Parameter;
+import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.openapitools.codegen.utils.ModelUtils;
@@ -1135,6 +1140,85 @@ public class OpenAPINormalizerTest {
             }
             schema.setRequired(null);
             return super.normalizeSchema(schema, visitedSchemas);
+        }
+    }
+
+    @Test
+    public void splitOperationPerMediaType() {
+        OpenAPI openAPI = TestUtils.parseSpec("src/test/resources/3_0/splitOperationPerMediaType.yaml");
+        Map<String, String> inputRules = Map.of(
+                "SPLIT_OPERATION_PER_MEDIATYPE", "true"
+        );
+        OpenAPINormalizer openAPINormalizer = OpenAPINormalizer.createNormalizer(openAPI, inputRules);
+        openAPINormalizer.normalize();
+
+dump(openAPI);
+    }
+
+    void dump(OpenAPI openApi) {
+
+       //clean(openApi);
+
+        YAMLMapper yamlMapper = new YAMLMapper();
+        yamlMapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
+        String yaml;
+        try {
+            yaml = yamlMapper.writeValueAsString(openApi);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        yaml = yaml.replaceAll("\\s+exampleSetFlag: false", "");
+        System.out.println(yaml);
+    }
+
+    private void clean(OpenAPI openApi) {
+        Set<Schema> visitedSchemas = new HashSet<>();
+
+        for (Map.Entry<String, PathItem> entry : openApi.getPaths().entrySet()) {
+            String path = entry.getKey();
+            PathItem pathItem = entry.getValue();
+            for (Map.Entry<PathItem.HttpMethod, Operation> e : pathItem.readOperationsMap().entrySet()) {
+                PathItem.HttpMethod method = e.getKey();
+                Operation operation = e.getValue();
+                Optional.ofNullable(operation.getRequestBody())
+                        .filter(Objects::nonNull)
+                        .map(RequestBody::getContent)
+                        .filter(Objects::nonNull)
+                        .map(Map::values)
+                        .orElse(List.of())
+                        .stream()
+                        .map(MediaType::getSchema)
+                        .filter(Objects::nonNull)
+                        .forEach(s -> cleanSchema(s, visitedSchemas));
+            }
+        }
+
+        for (Map.Entry<String, Schema> entry : openApi.getComponents().getSchemas().entrySet()) {
+            String name = entry.getKey();
+            Schema schema = entry.getValue();
+            cleanSchema(schema, visitedSchemas);
+        }
+    }
+
+
+    void cleanSchema(Schema schema, Set<Schema> visitedSchemas) {
+        if (schema == null) {
+            return;
+        }
+        if (visitedSchemas.contains(schema)) {
+            return;
+        }
+        visitedSchemas.add(schema);
+        schema.setTypes(null);
+        if (schema.getProperties()!=null) {
+            schema.getProperties().forEach((o, o2) -> {
+                Schema s = (Schema)o2;
+                try {
+                    cleanSchema(s, visitedSchemas);
+                } catch (NullPointerException e) {
+                    e.printStackTrace();
+                }
+            });
         }
     }
 }

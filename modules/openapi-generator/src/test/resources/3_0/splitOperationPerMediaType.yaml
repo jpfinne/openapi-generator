@@ -1,0 +1,101 @@
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: Example
+  license:
+    name: MIT
+servers:
+  - url: http://api.example.xyz/v1
+paths:
+  /file/{id}:
+    parameters:
+      - name: id
+        schema:
+          type: string
+        required: true
+        in: path
+    put:
+      operationId: updateFileOrMetadata
+      requestBody:
+        x-operation-id: uploadFile
+        $ref: "#/components/requestBodies/File"
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+            application/octet-stream:
+              x-operation-id: uploadFile
+              schema:
+                type: string
+                format: binary
+#    patch:
+#      operationId: patchFileOrMetadata
+#      requestBody:
+#        $ref: "#/components/requestBodies/File"
+#  /data:
+#    post:
+#      parameters:
+#        - name: q
+#          schema:
+#            type: string
+#          required: false
+#          in: query
+#      operationId: postData
+#      requestBody:
+#        description: postMultipleContentTypes
+#        required: true
+#        content:
+#          application/json:
+#            schema:
+#              $ref: "#/components/schemas/Person"
+#          multipart/form-data:
+#            schema: # Request payload
+#              type: object
+#              properties:
+#                lastName:
+#                  type: string
+#                firstName:
+#                  type: string
+#
+#      responses:
+#        '200':
+#          description: OK
+#          content:
+#            application/json:
+#              schema:
+#                $ref: "#/components/schemas/Person"
+components:
+  schemas:
+
+    Person:
+      description: person
+      type: object
+      properties:
+        lastName:
+          type: string
+        firstName:
+          type: string
+    FileMetadata:
+      type: object
+      properties:
+        filename:
+          type: string
+  requestBodies:
+    File:
+      description: person
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              filename:
+                type: string
+              file:
+                type: string
+                format: binary
+        application/json:
+          schema:
+            $ref: "#/components/schemas/FileMetadata"
