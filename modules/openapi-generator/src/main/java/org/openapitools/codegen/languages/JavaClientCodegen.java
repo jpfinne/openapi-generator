@@ -462,6 +462,10 @@ public class JavaClientCodegen extends AbstractJavaCodegen
             writePropertyBack(JAVA_17, true);
         }
 
+        if (libRestTemplate && useJakartaEe) {
+            writePropertyBack(JAVA_17, true);
+        }
+
         if (libMicroprofile && useSealedOneOfInterfaces) {
             writePropertyBack(JAVA_17, true);
         }
@@ -1142,6 +1146,19 @@ public class JavaClientCodegen extends AbstractJavaCodegen
     public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
         super.postProcessModelProperty(model, property);
 
+        if (OKHTTP_GSON.equals(getLibrary())
+                && property.getComposedSchemas() != null
+                && property.getComposedSchemas().getNot() != null) {
+            CodegenProperty notProperty = property.getComposedSchemas().getNot();
+            if (((notProperty.isEnum && notProperty.isString) || notProperty.isEnumRef)
+                    && notProperty.allowableValues != null
+                    && notProperty.allowableValues.get("values") != null) {
+                property.vendorExtensions.put(
+                        "x-java-not-string-enum-values",
+                        notProperty.allowableValues.get("values"));
+            }
+        }
+
         if (!model.isEnum) {
             //Needed imports for Jackson based libraries
             if (additionalProperties.containsKey(SERIALIZATION_LIBRARY_JACKSON)) {
@@ -1218,6 +1235,25 @@ public class JavaClientCodegen extends AbstractJavaCodegen
         }
 
         return codegenModel;
+    }
+
+    @Override
+    public Map<String, ModelsMap> postProcessAllModels(Map<String, ModelsMap> objs) {
+        objs = super.postProcessAllModels(objs);
+        if (isLibrary(OKHTTP_GSON)) {
+            // gson refuses a class whose hierarchy declares two fields bound to one JSON name, so
+            // the okhttp-gson additionalProperties bag is declared once, on the topmost ancestor
+            // that has one; every descendant inherits it instead of declaring its own copy
+            for (CodegenModel cm : getAllModels(objs).values()) {
+                for (CodegenModel ancestor = cm.getParentModel(); ancestor != null; ancestor = ancestor.getParentModel()) {
+                    if (ancestor.isAdditionalPropertiesTrue) {
+                        cm.vendorExtensions.put("x-inherits-additional-properties", true);
+                        break;
+                    }
+                }
+            }
+        }
+        return objs;
     }
 
     @Override

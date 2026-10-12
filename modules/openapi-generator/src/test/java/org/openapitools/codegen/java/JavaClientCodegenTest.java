@@ -1005,6 +1005,45 @@ public class JavaClientCodegenTest {
     }
 
     @Test
+    public void testOkHttpGsonValidatesStringEnumExcludedByNot() {
+        final Path output = newTempFolder();
+        final CodegenConfigurator configurator = new CodegenConfigurator()
+                .setGeneratorName(JAVA_GENERATOR)
+                .setLibrary(JavaClientCodegen.OKHTTP_GSON)
+                .setInputSpec("src/test/resources/3_1/java/oneof-not-enum.yaml")
+                .setOutputDir(output.toString().replace("\\", "/"));
+
+        List<File> files = new DefaultGenerator().opts(configurator.toClientOptInput()).generate();
+
+        validateJavaSourceFiles(files);
+
+        assertThat(output.resolve("src/main/java/org/openapitools/client/model/Other.java"))
+                .content()
+                .contains(
+                        "if (jsonObj.get(\"kind\") != null",
+                        "jsonObj.get(\"kind\").isJsonPrimitive()",
+                        "jsonObj.get(\"kind\").getAsJsonPrimitive().isString()",
+                        "\"known\".equals(jsonObj.get(\"kind\").getAsString())",
+                        "matches a value disallowed by `not`"
+                )
+                .doesNotContain(
+                        "jsonObj.get(\"not_schema\")"
+                );
+        assertThat(output.resolve("src/main/java/org/openapitools/client/model/OtherWithEnumRef.java"))
+                .content()
+                .contains(
+                        "if (jsonObj.get(\"kind\") != null",
+                        "jsonObj.get(\"kind\").isJsonPrimitive()",
+                        "jsonObj.get(\"kind\").getAsJsonPrimitive().isString()",
+                        "\"known\".equals(jsonObj.get(\"kind\").getAsString())",
+                        "matches a value disallowed by `not`"
+                )
+                .doesNotContain(
+                        "jsonObj.get(\"not_schema\")"
+                );
+    }
+
+    @Test
     public void testReferencedHeader() {
         final OpenAPI openAPI = TestUtils.parseFlattenSpec("src/test/resources/3_0/issue855.yaml");
         JavaClientCodegen codegen = new JavaClientCodegen();
@@ -2186,6 +2225,61 @@ public class JavaClientCodegenTest {
                 .content().contains("public class SchemaWithTwoAllOfRefs {");
         assertThat(output.resolve("src/main/java/xyz/abcdef/model/AnotherChild.java"))
                 .content().contains("public class AnotherChild {");
+    }
+
+    @Test
+    public void testAdditionalPropertiesFieldIsDeclaredOncePerHierarchyForGson() {
+        final Path output = generateOkHttpGsonWithAdditionalProperties("src/test/resources/3_0/allOf_extension_parent.yaml");
+
+        // exactly one class per hierarchy declares the bag; descendants inherit it
+        assertThat(output.resolve("src/main/java/xyz/abcdef/model/Person.java"))
+                .content().contains("private Map<String, Object> additionalProperties;");
+        assertThat(output.resolve("src/main/java/xyz/abcdef/model/Child.java"))
+                .content()
+                .contains("public class Child extends Person {")
+                .contains("public Child putAdditionalProperty(String key, Object value) {")
+                .doesNotContain("Map<String, Object> additionalProperties;");
+        // a model without an allOf parent declares its own bag, as before
+        assertThat(output.resolve("src/main/java/xyz/abcdef/model/PersonA.java"))
+                .content().contains("private Map<String, Object> additionalProperties;");
+    }
+
+    @Test
+    public void testAdditionalPropertiesFieldIsDeclaredOnceAcrossMultiLevelAllOfForGson() {
+        final Path output = generateOkHttpGsonWithAdditionalProperties("src/test/resources/3_0/java/okhttp-gson-additional-properties-allof-chain.yaml");
+
+        // exactly one class per hierarchy declares the bag, also across Root <- Middle <- Leaf
+        assertThat(output.resolve("src/main/java/xyz/abcdef/model/Root.java"))
+                .content().contains("private Map<String, Object> additionalProperties;");
+        assertThat(output.resolve("src/main/java/xyz/abcdef/model/Middle.java"))
+                .content()
+                .contains("public class Middle extends Root {")
+                .contains("public Middle putAdditionalProperty(String key, Object value) {")
+                .doesNotContain("Map<String, Object> additionalProperties;");
+        assertThat(output.resolve("src/main/java/xyz/abcdef/model/Leaf.java"))
+                .content()
+                .contains("public class Leaf extends Middle {")
+                .contains("public Leaf putAdditionalProperty(String key, Object value) {")
+                .doesNotContain("Map<String, Object> additionalProperties;");
+    }
+
+    private Path generateOkHttpGsonWithAdditionalProperties(String inputSpec) {
+        final Path output = newTempFolder();
+        final CodegenConfigurator configurator = new CodegenConfigurator()
+                .setGeneratorName(JAVA_GENERATOR)
+                // use default `okhttp-gson`
+                .addAdditionalProperty(CodegenConstants.API_PACKAGE, "xyz.abcdef.api")
+                .addAdditionalProperty(CodegenConstants.MODEL_PACKAGE, "xyz.abcdef.model")
+                .addAdditionalProperty(CodegenConstants.INVOKER_PACKAGE, "xyz.abcdef.invoker")
+                .addAdditionalProperty("disallowAdditionalPropertiesIfNotPresent", "false")
+                .setInputSpec(inputSpec)
+                .setOutputDir(output.toString().replace("\\", "/"));
+
+        DefaultGenerator generator = new DefaultGenerator();
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODELS, "true");
+        List<File> files = generator.opts(configurator.toClientOptInput()).generate();
+        validateJavaSourceFiles(files);
+        return output;
     }
 
     @Test
@@ -4834,6 +4928,67 @@ public class JavaClientCodegenTest {
         JavaFileAssert.assertThat(files.get("Fish.java"))
                 .isNormalClass()
                 .assertTypeAnnotations().containsWithName("Deprecated");
+    }
+
+    @Test
+    public void testWebClientDeprecatedOperation() {
+        final Map<String, File> files = generateFromContract("src/test/resources/3_0/petstore.yaml", WEBCLIENT);
+        JavaFileAssert.assertThat(files.get("PetApi.java"))
+                .assertMethod("findPetsByTags").hasAnnotation("Deprecated").commentContainsLines("@deprecated")
+                .toFileAssert()
+                .assertMethod("findPetsByTagsWithHttpInfo").hasAnnotation("Deprecated").commentContainsLines("@deprecated")
+                .toFileAssert()
+                .assertMethod("findPetsByTagsWithResponseSpec").hasAnnotation("Deprecated").commentContainsLines("@deprecated")
+                .toFileAssert()
+                .assertMethod("findPetsByStatus").doesNotHaveAnnotation("Deprecated")
+                .toFileAssert()
+                .assertMethod("findPetsByStatusWithHttpInfo").doesNotHaveAnnotation("Deprecated")
+                .toFileAssert()
+                .assertMethod("findPetsByStatusWithResponseSpec").doesNotHaveAnnotation("Deprecated");
+    }
+
+    @DataProvider
+    public static Object[] springBasedClients() {
+        return new Object[]{RESTTEMPLATE, RESTCLIENT, WEBCLIENT};
+    }
+
+    @Test(dataProvider = "springBasedClients")
+    public void shouldNotNullCheckRequiredParametersTwice(String library) {
+        final Map<String, File> files = generateFromContract(
+                "src/test/resources/3_0/petstore-with-fake-endpoints-models-for-testing.yaml", library);
+        final Path fakeApi = files.get("FakeApi.java").toPath();
+
+        // required parameters are already validated to be non-null, so they are added unconditionally
+        assertFileContains(fakeApi,
+                "Params.add(\"required_boolean_group\", apiClient.parameterToString(requiredBooleanGroup));",
+                "Params.add(\"number\", number);");
+        assertFileNotContains(fakeApi, "if (requiredBooleanGroup != null)", "if (number != null)");
+        // optional parameters are null-checked, with braces
+        assertFileContains(fakeApi,
+                "if (booleanGroup != null) {",
+                "if (integer != null) {");
+        // the request body is passed to invokeAPI directly
+        assertFileNotContains(fakeApi, "postBody", "PostBody");
+    }
+
+    @Test(dataProvider = "springBasedClients")
+    public void shouldUseDiamondOperatorWhereSupported(String library) {
+        for (boolean useJakartaEe : new boolean[]{false, true}) {
+            final Map<String, File> files = generateFromContract("src/test/resources/3_0/petstore.yaml", library,
+                    Map.of(JavaClientCodegen.USE_JAKARTA_EE, useJakartaEe));
+            final Path petApi = files.get("PetApi.java").toPath();
+
+            assertFileContains(petApi, "new LinkedMultiValueMap<>()");
+            assertFileNotContains(petApi, "new LinkedMultiValueMap<String", "new HashMap<String");
+            // the diamond operator is only supported for anonymous classes since Java 9
+            final boolean targetsJava17 = RESTCLIENT.equals(library) || useJakartaEe;
+            if (targetsJava17) {
+                assertFileContains(petApi, "new ParameterizedTypeReference<>() {}");
+            } else {
+                assertFileContains(petApi, "new ParameterizedTypeReference<Pet>() {}");
+                assertFileNotContains(petApi, "new ParameterizedTypeReference<>() {}");
+            }
+        }
     }
 
     @Test
