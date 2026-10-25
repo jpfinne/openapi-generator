@@ -422,8 +422,19 @@ public class ModelUtils {
         return schema.getProperties() != null && !schema.getProperties().isEmpty();
     }
 
-    public static boolean hasEnum(Schema<?> schema) {
-        return schema.getEnum() != null && !schema.getEnum().isEmpty();
+    /**
+     * A looser version of {@link #isEnumSchema(Schema)} that returns true if the schema has an enum, even if the enum is empty.
+     * Generally one would only expect it to be empty when expressing "reject all", so consider using {@link #isEnumSchema(Schema)} instead.
+     *
+     * @param schema the schema
+     * @return whether the schema has an enum list (which can be empty)
+     */
+    public static boolean isEnum(Schema<?> schema) {
+        return schema.getEnum() != null;
+    }
+
+    public static boolean hasSingleEnum(Schema<?> schema) {
+        return isEnumSchema(schema) && schema.getEnum().size() == 1;
     }
 
     /**
@@ -1096,7 +1107,20 @@ public class ModelUtils {
             if (schema.getAdditionalProperties() instanceof Boolean && (Boolean) schema.getAdditionalProperties()) {
                 return true;
             } else if (schema.getAdditionalProperties() instanceof JsonSchema) {
-                return true;
+                // a map of typed values, e.g. a model, a primitive, an array, or an enum, is not free-form.
+                // OAS 3.1 allows enum without type, and a null type is otherwise unconstrained.
+                Schema addlProps = getReferencedSchema(openAPI, (Schema) schema.getAdditionalProperties());
+                if (hasProperties(addlProps) || isComposedSchema(addlProps) || isEnumSchema(addlProps)) {
+                    return false;
+                }
+                // getType returns only the first OAS 3.1 type. A value union such as
+                // [object, string] is constrained, and member order must not change the result.
+                // This matches the schema-level types.size() > 1 check below.
+                if (addlProps.getTypes() != null && addlProps.getTypes().size() > 1) {
+                    return false;
+                }
+                String addlPropsType = getType(addlProps);
+                return addlPropsType == null || SchemaTypeUtil.OBJECT_TYPE.equals(addlPropsType);
             } else if (schema.getTypes() != null) {
                 if (schema.getTypes().size() == 1) { // types = [object]
                     return SchemaTypeUtil.OBJECT_TYPE.equals(schema.getTypes().iterator().next());
@@ -2747,7 +2771,7 @@ public class ModelUtils {
         }
 
         // convert referenced enum of null only to `nullable:true`
-        if (schema.getEnum() != null && schema.getEnum().size() == 1) {
+        if (hasSingleEnum(schema)) {
             if ("null".equals(String.valueOf(schema.getEnum().get(0)))) {
                 return true;
             }
